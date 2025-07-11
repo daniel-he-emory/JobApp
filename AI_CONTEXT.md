@@ -1,12 +1,15 @@
 # AI Conversation Summary
 
 ## Goal
-The user wants to clone a GitHub repository into their local environment and save the conversation context.
+The user wants to design and build a sophisticated, end-to-end autonomous agent for applying to jobs.
 
 ## Conversation Flow
-1.  The user asked to clone a repository from GitHub.
-2.  I confirmed I could do it but needed the repository URL and clarified that I operate in a Linux environment and cannot access the user's Windows file system.
-3.  The user provided the URL: `https://github.com/daniel-he-emory/JobApp.git`.
-4.  I confirmed the user's request to clone the repository into the `/home/daniel` directory.
-5.  I successfully cloned the repository into `/home/daniel/JobApp`.
-6.  The user asked to navigate to the new `JobApp` directory and then requested to save the conversation context.
+1.  The user provided a detailed prompt outlining the project requirements for a job application agent. The agent should be written in Python using Playwright, be modular, handle Greenhouse email verification, use proxies, and manage state.
+2.  The user requested that I act as an AI engineering architect to help design the project.
+3.  I was asked to update the `README.md` file with the project details.
+4.  I updated the `README.md` to reflect the project's vision.
+5.  The user clarified the target audience for the tool, and I updated the `README.md` accordingly.
+6.  The user requested to save the conversation context.
+
+## Previous Context
+The initial context involved cloning the `JobApp` repository from GitHub and setting up aliases. That context is now superseded by the new project direction.
