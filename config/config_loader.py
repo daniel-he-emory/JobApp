@@ -128,23 +128,44 @@ class ConfigLoader:
         
         missing_configs = []
         for config_path in required_configs:
-            if not self._get_nested_config(config_path):
+            value = self._get_nested_config(config_path)
+            # Check if value is missing or is a placeholder
+            if not value or self._is_placeholder_value(value):
                 missing_configs.append('.'.join(config_path))
         
+        # Fail fast if critical configurations are missing
         if missing_configs:
-            self.logger.warning(f"Missing configurations: {', '.join(missing_configs)}")
+            raise ValueError(f"Missing required configurations: {', '.join(missing_configs)}. "
+                           "Please update your config file or set environment variables.")
         
         # Validate platform credentials (at least one platform should be configured)
         platforms_configured = []
-        if self._get_nested_config(['credentials', 'linkedin', 'email']):
+        linkedin_email = self._get_nested_config(['credentials', 'linkedin', 'email'])
+        if linkedin_email and not self._is_placeholder_value(linkedin_email):
             platforms_configured.append('LinkedIn')
-        if self._get_nested_config(['credentials', 'wellfound', 'email']):
+        
+        wellfound_email = self._get_nested_config(['credentials', 'wellfound', 'email'])
+        if wellfound_email and not self._is_placeholder_value(wellfound_email):
             platforms_configured.append('Wellfound')
         
         if not platforms_configured:
-            self.logger.warning("No platform credentials configured")
+            raise ValueError("No platform credentials configured. At least one platform "
+                           "(LinkedIn or Wellfound) must have valid email/password credentials.")
         else:
             self.logger.info(f"Configured platforms: {', '.join(platforms_configured)}")
+    
+    def _is_placeholder_value(self, value: str) -> bool:
+        """Check if a value is a placeholder that needs to be replaced"""
+        if not isinstance(value, str):
+            return False
+        
+        placeholder_indicators = [
+            'your_', 'example.com', 'placeholder', 'change_me', 'todo',
+            'your_app_password', 'your_linkedin_', 'your_wellfound_'
+        ]
+        
+        value_lower = value.lower()
+        return any(indicator in value_lower for indicator in placeholder_indicators)
     
     def _get_nested_config(self, path: list) -> Any:
         """Get a nested configuration value"""

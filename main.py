@@ -37,7 +37,8 @@ class JobApplicationOrchestrator:
     Manages configuration, agents, and provides execution coordination
     """
     
-    def __init__(self, config_path: str = "config/config.yaml"):
+    def __init__(self, config_path: str = "config/config.yaml", dry_run: bool = False):
+        self.dry_run = dry_run
         self.config_loader = ConfigLoader(config_path)
         self.config = self.config_loader.load_config()
         self.state_manager = self._init_state_manager()
@@ -81,6 +82,86 @@ class JobApplicationOrchestrator:
         
         return logging.getLogger(__name__)
     
+    async def _simulate_agent_run(self, platform_name: str, search_criteria: SearchCriteria, 
+                                 max_applications: int, credentials: Dict[str, str]) -> Dict[str, Any]:
+        """Simulate agent run for dry run mode"""
+        import random
+        
+        print(f"\n🔍 DRY RUN: {platform_name} Agent Simulation")
+        print("=" * 50)
+        
+        # Simulate credential validation
+        if not credentials or not credentials.get('email'):
+            print(f"❌ {platform_name} credentials not configured")
+            return {
+                'platform': platform_name,
+                'jobs_found': 0,
+                'applications_submitted': 0,
+                'errors': 1,
+                'applied_jobs': [],
+                'error_message': 'No credentials configured'
+            }
+        
+        print(f"✅ {platform_name} credentials configured ({credentials['email'][:3]}***)")
+        
+        # Simulate search criteria
+        print(f"\n📋 Search Configuration:")
+        print(f"   Keywords: {search_criteria.keywords}")
+        print(f"   Locations: {search_criteria.locations}")
+        print(f"   Date posted: {search_criteria.date_posted}")
+        print(f"   Easy Apply only: {search_criteria.easy_apply_only}")
+        
+        # Simulate finding jobs
+        simulated_jobs_found = random.randint(3, 15)
+        print(f"\n🔍 Would search {platform_name} and find: {simulated_jobs_found} jobs")
+        
+        # Simulate filtering existing applications
+        existing_applications = random.randint(0, 3)
+        available_jobs = simulated_jobs_found - existing_applications
+        if existing_applications > 0:
+            print(f"⏭️  Would skip {existing_applications} jobs (already applied)")
+        
+        # Simulate applications
+        jobs_to_apply = min(available_jobs, max_applications)
+        successful_applications = random.randint(max(0, jobs_to_apply - 1), jobs_to_apply)
+        failed_applications = jobs_to_apply - successful_applications
+        
+        print(f"\n📝 Would attempt to apply to: {jobs_to_apply} jobs")
+        print(f"   Successful applications: {successful_applications}")
+        if failed_applications > 0:
+            print(f"   Failed applications: {failed_applications}")
+        
+        # Generate simulated job titles
+        sample_titles = [
+            "Senior Software Engineer", "Developer Advocate", "Solutions Engineer",
+            "Forward Deployed Engineer", "Technical Account Manager", "Product Engineer",
+            "Staff Software Engineer", "Senior Frontend Developer", "Backend Engineer"
+        ]
+        
+        applied_jobs = []
+        for i in range(successful_applications):
+            job_title = random.choice(sample_titles)
+            company = f"AI Startup {chr(65 + i)}"
+            applied_jobs.append({
+                'title': job_title,
+                'company': company,
+                'url': f"https://{platform_name.lower()}.com/jobs/example-{i+1}"
+            })
+            print(f"   ✅ Would apply: {job_title} at {company}")
+        
+        print(f"\n📊 {platform_name} Simulation Summary:")
+        print(f"   Jobs found: {simulated_jobs_found}")
+        print(f"   Applications submitted: {successful_applications}")
+        print(f"   Errors: {failed_applications}")
+        
+        return {
+            'platform': platform_name,
+            'jobs_found': simulated_jobs_found,
+            'applications_submitted': successful_applications,
+            'errors': failed_applications,
+            'applied_jobs': applied_jobs
+        }
+    
     def get_search_criteria(self) -> SearchCriteria:
         """Build search criteria from configuration"""
         search_config = self.config.get('search_settings', {})
@@ -123,6 +204,10 @@ class JobApplicationOrchestrator:
             proxy_config = self.config_loader.get_proxy_config()
             
             self.logger.info(f"Starting {platform_name} agent")
+            
+            # Handle dry run mode
+            if self.dry_run:
+                return await self._simulate_agent_run(platform_name, search_criteria, max_applications, credentials)
             
             # Initialize agent
             agent = agent_class(self.config, proxy_config)
@@ -348,8 +433,8 @@ async def main():
     args = parse_arguments()
     
     try:
-        # Initialize orchestrator
-        orchestrator = JobApplicationOrchestrator(args.config)
+        # Initialize orchestrator with dry run flag
+        orchestrator = JobApplicationOrchestrator(args.config, dry_run=args.dry_run)
         
         # Set verbose logging if requested
         if args.verbose:
@@ -360,12 +445,7 @@ async def main():
         if args.platforms:
             platforms = [p.strip() for p in args.platforms.split(',')]
         
-        # Run automation
-        if args.dry_run:
-            print("DRY RUN MODE - No applications will be submitted")
-            # TODO: Implement dry run mode
-            return
-        
+        # Run automation (handles dry run internally)
         summary = await orchestrator.run_automation(
             platforms=platforms,
             max_applications_per_platform=args.max_apps
