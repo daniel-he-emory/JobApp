@@ -1,0 +1,44 @@
+# Core dependencies
+playwright>=1.40.0
+asyncio-pool==0.6.0
+
+# Configuration and data handling
+PyYAML>=6.0.1
+python-dotenv>=1.0.0
+
+# Email handling
+imaplib2==3.6
+email-validator>=2.1.0
+
+
+
+# HTTP and web scraping utilities
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+
+# Utility libraries
+python-dateutil>=2.8.2
+urllib3>=2.0.0
+pathlib2>=2.3.7  # For older Python compatibility
+
+# Logging and monitoring
+structlog>=23.2.0
+
+# Development and testing (optional)
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+black>=23.0.0
+flake8>=6.0.0
+
+# Optional: Proxy support libraries
+requests[socks]>=2.31.0
+PySocks>=1.7.1
+
+# Optional: Enhanced email parsing
+mail-parser>=2.2.1
+email-reply-parser>=0.5.12
+
+# Optional: Advanced web automation
+selenium>=4.15.0  # Fallback option
+undetected-chromedriver>=3.5.0  # For additional stealth

@@ -1,0 +1,108 @@
+# Job Application Agent Configuration
+# Copy this file and customize with your credentials
+
+# Platform Credentials
+credentials:
+  linkedin:
+    email: "your_linkedin_email@example.com"
+    password: "your_linkedin_password"
+  
+  wellfound:
+    email: "your_wellfound_email@example.com" 
+    password: "your_wellfound_password"
+  
+  # Email account for Greenhouse verification
+  verification_email:
+    address: "your_job_applications@gmail.com"
+    password: "your_app_password"  # Gmail App Password, not regular password
+    imap_server: "imap.gmail.com"
+    imap_port: 993
+
+# Proxy Configuration (optional)
+proxy:
+  enabled: false
+  # Uncomment and configure if using proxy service
+  # host: "rotating-residential.brightdata.com"
+  # port: 22225
+  # username: "your_proxy_username"
+  # password: "your_proxy_password"
+
+# Job Search Configuration
+search_settings:
+  # Default search criteria
+  default_keywords:
+    - "Developer Advocate"
+    - "Solutions Engineer" 
+    - "Forward Deployed Engineer"
+    - "Technical Account Manager"
+    - "Customer Success Engineer"
+  
+  default_locations:
+    - "Canada"
+    - "Remote"
+    - "San Francisco"
+    - "New York"
+  
+  # Job filtering
+  experience_levels:
+    - "Mid-Senior level"
+    - "Senior level"
+  
+  date_posted: "Past week"  # Past 24 hours, Past week, Past month
+  easy_apply_only: true
+  remote_options: "Remote"  # On-site, Remote, Hybrid
+
+# Application Settings
+application:
+  max_applications_per_session: 5
+  max_applications_per_platform: 10
+  delay_between_applications: 30  # seconds
+  
+  # Resume and cover letter paths
+  resume_path: "./documents/resume.pdf"
+  cover_letter_template: "./documents/cover_letter_template.txt"
+  
+  # Default application answers
+  default_answers:
+    years_experience: "3-5 years"
+    willing_to_relocate: false
+    authorized_to_work: true
+    require_sponsorship: false
+    salary_expectation: "Competitive"
+    availability: "2 weeks notice"
+
+# State Management
+state:
+  storage_type: "sqlite"  # sqlite or csv
+  database_path: "./data/job_applications.db"
+  
+# Browser Settings
+browser:
+  headless: true
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  window_size:
+    width: 1920
+    height: 1080
+  
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_file: "./logs/job_agent.log"
+  max_log_size_mb: 10
+  backup_count: 5
+
+# Platform-specific Settings
+platforms:
+  linkedin:
+    enabled: true
+    search_url: "https://www.linkedin.com/jobs/search/"
+    easy_apply_filter: true
+    
+  wellfound:
+    enabled: true
+    search_url: "https://wellfound.com/jobs"
+    
+  # Add more platforms as needed
+  # indeed:
+  #   enabled: false
+  #   search_url: "https://www.indeed.com/jobs"
