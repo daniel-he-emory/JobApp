@@ -39,8 +39,9 @@ class LinkedInAgent(JobAgent):
                 return False
             
             self.logger.info("Navigating to LinkedIn login page")
-            await self.page.goto("https://www.linkedin.com/login")
-            await self.page.wait_for_load_state('networkidle', timeout=10000)
+            await self.page.goto("https://www.linkedin.com/login", timeout=30000)
+            await self.page.wait_for_load_state('domcontentloaded', timeout=30000)
+            await self.page.wait_for_timeout(2000)  # Give page time to fully load
             
             # Fill login form
             await self.page.fill('input[name="session_key"]', credentials['email'])
@@ -78,20 +79,82 @@ class LinkedInAgent(JobAgent):
             
             # Navigate to LinkedIn jobs page
             self.logger.info("Navigating to LinkedIn jobs page")
-            await self.page.goto("https://www.linkedin.com/jobs/")
-            await self.page.wait_for_load_state('networkidle')
+            try:
+                await self.page.goto("https://www.linkedin.com/jobs/", timeout=60000)
+                await self.page.wait_for_load_state('networkidle', timeout=30000)
+            except Exception as e:
+                self.logger.warning(f"Initial navigation slow: {str(e)}, continuing...")
+                # Try to wait for basic page elements instead
+                try:
+                    await self.page.wait_for_selector('input[aria-label*="Search"], input[placeholder*="Search"]', timeout=30000)
+                except:
+                    # Try direct search URL approach
+                    search_url = "https://www.linkedin.com/jobs/search/?keywords=Solutions%20Engineer&location=San%20Francisco%20Bay%20Area"
+                    self.logger.info("Trying direct search URL approach")
+                    await self.page.goto(search_url, timeout=60000)
+                    await self.page.wait_for_load_state('domcontentloaded')
             
-            # Search for jobs using keywords
-            keywords_str = " OR ".join(criteria.keywords)
-            locations_str = ", ".join(criteria.locations)
+            # If we're not already on a search results page, try to search
+            current_url = self.page.url
+            if "/jobs/search" not in current_url:
+                # Search for jobs using keywords
+                keywords_str = " OR ".join(criteria.keywords)
+                locations_str = ", ".join(criteria.locations)
+                
+                try:
+                    # Try multiple selector patterns for search fields
+                    search_selectors = [
+                        'input[aria-label*="Search by title"]',
+                        'input[placeholder*="Search by title"]', 
+                        'input[aria-label*="Search jobs"]',
+                        'input[aria-label*="Job title"]',
+                        'input[data-test*="job-search"]',
+                        '.jobs-search-box__text-input[aria-label*="Search"]'
+                    ]
+                    
+                    location_selectors = [
+                        'input[aria-label*="City"]',
+                        'input[placeholder*="City"]',
+                        'input[aria-label*="Location"]',
+                        'input[placeholder*="Location"]',
+                        'input[data-test*="location"]'
+                    ]
+                    
+                    # Try to fill search field
+                    search_filled = False
+                    for selector in search_selectors:
+                        try:
+                            await self.page.wait_for_selector(selector, timeout=5000)
+                            await self.page.fill(selector, keywords_str, timeout=5000)
+                            search_filled = True
+                            self.logger.info(f"Filled search with selector: {selector}")
+                            break
+                        except:
+                            continue
+                    
+                    # Try to fill location field
+                    location_filled = False
+                    for selector in location_selectors:
+                        try:
+                            await self.page.wait_for_selector(selector, timeout=5000)
+                            await self.page.fill(selector, locations_str, timeout=5000)
+                            location_filled = True
+                            self.logger.info(f"Filled location with selector: {selector}")
+                            break
+                        except:
+                            continue
+                    
+                    if search_filled:
+                        # Press enter to search
+                        await self.page.keyboard.press('Enter')
+                        await self.page.wait_for_timeout(3000)
+                        await self.page.wait_for_load_state('domcontentloaded', timeout=30000)
+                    
+                except Exception as e:
+                    self.logger.warning(f"Search form filling failed: {str(e)}, trying to extract jobs from current page")
             
-            # Fill search fields - following n8n pattern of typing in search bars
-            await self.page.fill('input[aria-label*="Search by title"], input[placeholder*="Search by title"]', keywords_str)
-            await self.page.fill('input[aria-label*="City"], input[placeholder*="City"]', locations_str)
-            
-            # Press enter to search (following n8n Type node with pressEnterKey: true)
-            await self.page.press('input[aria-label*="Search by title"], input[placeholder*="Search by title"]', 'Enter')
-            await self.page.wait_for_load_state('networkidle')
+            # Wait a moment for any dynamic content to load
+            await self.page.wait_for_timeout(3000)
             
             # Apply filters - following n8n Click operations
             await self._apply_search_filters(criteria)
@@ -184,11 +247,51 @@ class LinkedInAgent(JobAgent):
         jobs = []
         
         try:
-            # Wait for job listings to load
-            await self.page.wait_for_selector('.jobs-search__results-list, .jobs-search-results-list', timeout=10000)
+            # Try multiple selectors for job results container
+            results_selectors = [
+                '.jobs-search__results-list',
+                '.jobs-search-results-list', 
+                '.jobs-search-results__list',
+                '.search-results-container',
+                '[data-test-results-list]',
+                '.job-search-results-list'
+            ]
             
-            # Get all job cards
-            job_cards = await self.page.query_selector_all('.job-search-card, .jobs-search-results__list-item')
+            results_container = None
+            for selector in results_selectors:
+                try:
+                    await self.page.wait_for_selector(selector, timeout=5000)
+                    results_container = selector
+                    self.logger.info(f"Found results container: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not results_container:
+                # Try to find any job-related elements
+                await self.page.wait_for_timeout(5000)
+                self.logger.warning("Could not find standard results container, trying generic job selectors")
+            
+            # Try multiple selectors for individual job cards
+            job_card_selectors = [
+                'li[data-occludable-job-id]',  # Primary LinkedIn job cards
+                '[data-job-id]',  # Alternative job elements
+                '.job-search-card',
+                '.jobs-search-results__list-item',
+                '.job-result-card',
+                '.base-search-card'
+            ]
+            
+            job_cards = []
+            for selector in job_card_selectors:
+                try:
+                    cards = await self.page.query_selector_all(selector)
+                    if cards:
+                        job_cards = cards
+                        self.logger.info(f"Found {len(cards)} job cards with selector: {selector}")
+                        break
+                except:
+                    continue
             
             for card in job_cards[:20]:  # Limit to first 20 jobs
                 try:
@@ -207,10 +310,27 @@ class LinkedInAgent(JobAgent):
     async def _extract_single_job(self, card) -> Optional[JobPosting]:
         """Extract information from a single job card"""
         try:
-            # Extract job title
-            title_element = await card.query_selector('.job-search-card__title a, .job-title a, [data-test-id*="job-title"]')
+            # Extract job title - try multiple selectors
+            title_selectors = [
+                'a[data-test-id*="job-title"]',
+                '.job-search-card__title a', 
+                '.job-title a',
+                'h3 a',
+                'a[aria-label*="job"]',
+                'a:has-text("Engineer")'  # fallback for engineer jobs
+            ]
+            
+            title_element = None
+            for selector in title_selectors:
+                title_element = await card.query_selector(selector)
+                if title_element:
+                    break
+            
             if not title_element:
-                return None
+                # Try to get any link within the card
+                title_element = await card.query_selector('a')
+                if not title_element:
+                    return None
             
             title = await title_element.inner_text()
             job_url = await title_element.get_attribute('href')
@@ -222,18 +342,39 @@ class LinkedInAgent(JobAgent):
             # Extract job ID from URL
             job_id = self._extract_job_id_from_url(job_url)
             
-            # Extract company name
-            company_element = await card.query_selector('.job-search-card__subtitle, .job-subtitle, [data-test-id*="company"]')
-            company = await company_element.inner_text() if company_element else "Unknown"
+            # Extract company name - try multiple selectors
+            company_selectors = [
+                '[data-test-id*="company"]',
+                '.job-search-card__subtitle',
+                '.job-subtitle', 
+                'h4',
+                '.base-search-card__subtitle'
+            ]
             
-            # Extract location
-            location_element = await card.query_selector('.job-search-card__location, .job-location, [data-test-id*="location"]')
-            location = await location_element.inner_text() if location_element else "Unknown"
+            company = "Unknown"
+            for selector in company_selectors:
+                company_element = await card.query_selector(selector)
+                if company_element:
+                    company = await company_element.inner_text()
+                    break
             
-            # Check if Easy Apply is available
-            easy_apply_element = await card.query_selector('.jobs-apply-button--top-card, button:has-text("Easy Apply")')
-            if not easy_apply_element:
-                return None  # Skip jobs without Easy Apply
+            # Extract location - try multiple selectors  
+            location_selectors = [
+                '[data-test-id*="location"]',
+                '.job-search-card__location',
+                '.job-location',
+                '.base-search-card__location'
+            ]
+            
+            location = "Unknown"
+            for selector in location_selectors:
+                location_element = await card.query_selector(selector)
+                if location_element:
+                    location = await location_element.inner_text()
+                    break
+            
+            # For now, assume all jobs allow Easy Apply since we're on a filtered page
+            # We'll check this during application attempt
             
             return JobPosting(
                 job_id=job_id,

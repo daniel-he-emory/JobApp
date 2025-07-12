@@ -4,17 +4,17 @@
 # Platform Credentials
 credentials:
   linkedin:
-    email: "your_linkedin_email@example.com"
-    password: "your_linkedin_password"
+    email: "ddanielh5@gmail.com"
+    password: "2513fuhe"
   
   wellfound:
-    email: "your_wellfound_email@example.com" 
-    password: "your_wellfound_password"
+    email: "danielhe.danielhe@gmail.com" 
+    password: "dVF3(32ct"
   
   # Email account for Greenhouse verification
   verification_email:
-    address: "your_job_applications@gmail.com"
-    password: "your_app_password"  # Gmail App Password, not regular password
+    address: "danielhe.danielhe@gmail.com"
+    password: "ncle swmi olxw sbvr"  # Gmail App Password, not regular password
     imap_server: "imap.gmail.com"
     imap_port: 993
 
@@ -31,22 +31,24 @@ proxy:
 search_settings:
   # Default search criteria
   default_keywords:
-    - "Developer Advocate"
-    - "Solutions Engineer" 
+    - "Solutions Engineer"
+    - "Financial Analyst"
+    - "Analyst"
     - "Forward Deployed Engineer"
-    - "Technical Account Manager"
-    - "Customer Success Engineer"
+    - "Deployment Strategist"
+    - "Corporate Finance"
+    - "Business Development"
   
   default_locations:
-    - "Canada"
-    - "Remote"
-    - "San Francisco"
-    - "New York"
+    - "San Francisco Bay Area"
+    - "New York City"
+    - "Chicago"
+    - "Atlanta"
   
   # Job filtering
   experience_levels:
-    - "Mid-Senior level"
-    - "Senior level"
+    - "Entry level"
+    - "Internship"
   
   date_posted: "Past week"  # Past 24 hours, Past week, Past month
   easy_apply_only: true
@@ -54,8 +56,8 @@ search_settings:
 
 # Application Settings
 application:
-  max_applications_per_session: 5
-  max_applications_per_platform: 10
+  max_applications_per_session: 100
+  max_applications_per_platform: 100
   delay_between_applications: 30  # seconds
   
   # Resume and cover letter paths
@@ -65,17 +67,17 @@ application:
   # Default application answers
   # Personal information for application forms
   personal_info:
-    first_name: "Your First Name"
-    last_name: "Your Last Name"
-    phone_number: "Your Phone Number"
+    first_name: "Daniel"
+    last_name: "He"
+    phone_number: "6505808088"
   
   default_answers:
-    years_experience: "3-5 years"
-    willing_to_relocate: false
+    years_experience: "0-1 years"
+    willing_to_relocate: true
     authorized_to_work: true
     require_sponsorship: false
     salary_expectation: "Competitive"
-    availability: "2 weeks notice"
+    availability: "Immediately available"
 
 # State Management
 state:
@@ -84,11 +86,18 @@ state:
   
 # Browser Settings
 browser:
-  headless: true
-  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+  headless: false  # Non-headless for better stealth
+  stealth_mode: true  # Enable playwright-stealth
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
   window_size:
-    width: 1920
-    height: 1080
+    width: 1440
+    height: 900
+  # Anti-fingerprinting settings
+  locale: "en-US"
+  timezone: "America/New_York"
+  device_memory: 8
+  cpu_cores: 4
+  randomize_viewport: true
   
 # Logging Configuration
 logging:
@@ -115,7 +124,7 @@ platforms:
 
 # Google Sheets Reporting (optional)
 google_sheets:
-  enabled: false  # Set to true to enable Google Sheets reporting
-  spreadsheet_id: "your_spreadsheet_id_here"  # Get from Google Sheets URL
-  sheet_name: "Job Applications"  # Name of the sheet within the spreadsheet
+  enabled: true  # Re-enabled after adding test user
+  spreadsheet_id: "1nY5Q6_JroKLly_OBA8FRYUSzR1rzGXX8u5XupbR-oTI"  # Get from Google Sheets URL
+  sheet_name: "Sheet1"  # Use the default sheet name
   credentials_path: "google_credentials.json"  # Path to Google API credentials

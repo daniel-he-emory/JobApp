@@ -83,14 +83,23 @@ class GoogleSheetsReporter:
                         flow = InstalledAppFlow.from_client_secrets_file(
                             self.credentials_path, SCOPES
                         )
-                        # Try to run local server, fallback to console flow if needed
-                        try:
-                            creds = flow.run_local_server(port=0, open_browser=True)
-                            self.logger.info("Completed OAuth2 flow via local server")
-                        except Exception as e:
-                            self.logger.warning(f"Local server OAuth failed: {str(e)}, trying console flow")
-                            creds = flow.run_console()
-                            self.logger.info("Completed OAuth2 flow via console")
+                        # Use out-of-band flow for desktop apps
+                        print("\n🔗 Google Sheets Authorization Required:")
+                        print("Copy this URL and open it in your browser:")
+                        
+                        # Set redirect URI to out-of-band for desktop apps
+                        flow.redirect_uri = 'urn:ietf:wg:oauth:2.0:oob'
+                        auth_url, _ = flow.authorization_url(
+                            prompt='consent',
+                            access_type='offline'
+                        )
+                        print(f"\n{auth_url}\n")
+                        
+                        print("After authorizing, you'll get a code. Paste it here:")
+                        auth_code = input("Authorization code: ").strip()
+                        flow.fetch_token(code=auth_code)
+                        creds = flow.credentials
+                        self.logger.info("Completed OAuth2 flow via out-of-band authorization")
                         
                     except Exception as e:
                         self.logger.error(f"OAuth2 flow failed: {str(e)}")

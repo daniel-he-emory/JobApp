@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import asyncio
 from playwright.async_api import Browser, Page, BrowserContext
 import logging
+from utils.stealth_browser import StealthBrowserManager
 
 @dataclass
 class JobPosting:
@@ -43,34 +44,24 @@ class JobAgent(ABC):
         self.page: Optional[Page] = None
         self.logger = logging.getLogger(self.__class__.__name__)
         
-    async def initialize_browser(self, headless: bool = True) -> None:
-        """Initialize browser with proxy and anti-detection settings"""
+    async def initialize_browser(self, headless: bool = None) -> None:
+        """Initialize browser with enhanced anti-detection settings"""
         from playwright.async_api import async_playwright
-        from utils.proxy_manager import AntiDetectionManager
+        
+        # Initialize stealth browser manager
+        self.stealth_manager = StealthBrowserManager(self.config)
+        
+        # Use headless setting from config if not specified
+        if headless is None:
+            headless = self.config.get('browser', {}).get('headless', False)
         
         playwright = await async_playwright().start()
         
-        # Enhanced anti-detection arguments
-        launch_options = {
-            'headless': headless,
-            'args': [
-                '--disable-blink-features=AutomationControlled',
-                '--disable-web-security',
-                '--disable-features=VizDisplayCompositor',
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-                '--disable-gpu',
-                '--no-first-run',
-                '--no-default-browser-check',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding',
-                '--disable-extensions',
-                '--disable-plugins',
-                '--disable-default-apps'
-            ]
-        }
+        # Get enhanced launch options with anti-detection
+        launch_options = self.stealth_manager.get_browser_launch_options()
+        
+        # Override headless if specified
+        launch_options['headless'] = headless
         
         # Add proxy configuration if available
         if self.proxy_config:
@@ -83,58 +74,25 @@ class JobAgent(ABC):
                 }
             else:
                 # Handle ProxyManager config
-                from utils.proxy_manager import ProxyManager
-                if hasattr(self.proxy_config, 'get_current_proxy'):
-                    current_proxy = self.proxy_config.get_current_proxy()
-                    if current_proxy:
-                        launch_options['proxy'] = self.proxy_config.get_playwright_proxy_config(current_proxy)
+                try:
+                    from utils.proxy_manager import ProxyManager
+                    if hasattr(self.proxy_config, 'get_current_proxy'):
+                        current_proxy = self.proxy_config.get_current_proxy()
+                        if current_proxy:
+                            launch_options['proxy'] = self.proxy_config.get_playwright_proxy_config(current_proxy)
+                except Exception as e:
+                    self.logger.warning(f"Could not configure proxy: {e}")
             
         self.browser = await playwright.chromium.launch(**launch_options)
         
-        # Use random user agent and viewport for better anonymity
-        context_options = {
-            'user_agent': AntiDetectionManager.get_random_user_agent(),
-            'viewport': AntiDetectionManager.get_random_viewport(),
-            'java_script_enabled': True,
-            'permissions': ['geolocation'],
-            'ignore_https_errors': True,
-            'bypass_csp': True
-        }
-        
-        self.context = await self.browser.new_context(**context_options)
-        
-        # Add comprehensive stealth scripts
-        stealth_script = AntiDetectionManager.get_stealth_script()
-        await self.context.add_init_script(stealth_script)
+        # Create human-like browser context with enhanced anti-detection
+        self.context = await self.stealth_manager.create_human_like_context(self.browser)
         
         self.page = await self.context.new_page()
         
-        # Additional page-level stealth measures
-        await self.page.evaluate("""
-            // Override webgl vendor and renderer
-            const getParameter = WebGLRenderingContext.getParameter;
-            WebGLRenderingContext.prototype.getParameter = function(parameter) {
-                if (parameter === 37445) {
-                    return 'Intel Inc.';
-                }
-                if (parameter === 37446) {
-                    return 'Intel(R) Iris(TM) Graphics 6100';
-                }
-                return getParameter(parameter);
-            };
-            
-            // Mock battery API
-            if ('getBattery' in navigator) {
-                navigator.getBattery = function() {
-                    return Promise.resolve({
-                        charging: true,
-                        chargingTime: 0,
-                        dischargingTime: Infinity,
-                        level: 1
-                    });
-                };
-            }
-        """)
+        # Apply comprehensive stealth measures to the page
+        await self.stealth_manager.apply_stealth_to_page(self.page)
+        await self.stealth_manager.add_human_behavior_to_page(self.page)
         
     async def cleanup(self) -> None:
         """Clean up browser resources"""
