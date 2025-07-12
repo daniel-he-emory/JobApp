@@ -3,7 +3,6 @@ import email
 import re
 import time
 from typing import Optional, Dict, Any
-from email.mime.text import MIMEText
 import logging
 from urllib.parse import urlparse
 

@@ -107,6 +107,7 @@ search_settings:
 ```yaml
 application:
   max_applications_per_session: 5
+  resume_path: "/path/to/your/resume.pdf"  # Add this line
   default_answers:
     years_experience: "3-5 years"
     willing_to_relocate: false
@@ -114,6 +115,43 @@ application:
     require_sponsorship: false
     salary_expectation: "Competitive"
 ```
+
+## Optional: Google Sheets Reporting
+
+To automatically log all successful applications to a Google Sheet for easy tracking, follow these steps.
+
+### 1. Enable Google Sheets API
+
+- Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project (or select an existing one).
+- In the navigation menu, go to **APIs & Services > Library**.
+- Search for "Google Sheets API" and click **Enable**.
+
+### 2. Create Credentials
+
+- Go to **APIs & Services > Credentials**.
+- Click **+ CREATE CREDENTIALS** and select **OAuth client ID**.
+- If prompted, configure the consent screen. Select **External** and provide an app name (e.g., "Job Application Agent"). Fill in the required user support and developer contact emails.
+- For the Application type, select **Desktop app**.
+- Click **Create**. A window will appear with your client ID and secret. Click **DOWNLOAD JSON** and save this file as `google_credentials.json` in the root directory of the project.
+
+### 3. Configure `config.yaml`
+
+Add the following section to your `config.yaml` file:
+
+```yaml
+google_sheets:
+  enabled: true
+  spreadsheet_id: "YOUR_SPREADSHEET_ID_HERE"
+  sheet_name: "Applications"
+```
+- **spreadsheet_id**: You can find this in the URL of your Google Sheet (`https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit`).
+- **sheet_name**: The name of the sheet (tab) where you want the data to be saved.
+
+### 4. First-Time Authorization
+
+The first time you run the agent with Google Sheets enabled, your web browser will open, asking you to authorize access. After you approve, a `token.json` file will be created in your project directory. This file will be used for all future authentications.
+
+**Important:** Ensure that `google_credentials.json` and `token.json` are added to your `.gitignore` file to prevent them from being committed to version control.
 
 ## Optional: Proxy Configuration
 

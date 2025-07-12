@@ -60,3 +60,7 @@ tmp/
 # Browser files
 .playwright/
 browsers/
+# Google API credentials
+google_credentials.json
+token.json
+

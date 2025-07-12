@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from config.config_loader import ConfigLoader
 from utils.state_manager import StateManager
+from utils.google_sheets_reporter import GoogleSheetsReporter
 from base_agent import SearchCriteria
 from agents.linkedin_agent import LinkedInAgent
 
@@ -338,6 +339,9 @@ class JobApplicationOrchestrator:
         self.logger.info("Automation completed")
         self._print_summary(final_summary)
         
+        # Google Sheets reporting
+        self._post_run_summary(final_summary)
+        
         return final_summary
     
     def _print_summary(self, summary: Dict[str, Any]):
@@ -388,6 +392,47 @@ class JobApplicationOrchestrator:
             print(f"  {platform}: {platform_stats['successful']} applications")
         
         print("="*60)
+
+    def _post_run_summary(self, summary: Dict[str, Any]):
+        """Handle post-run reporting, including Google Sheets integration"""
+        try:
+            # Check if Google Sheets reporting is enabled
+            google_sheets_config = self.config.get('google_sheets', {})
+            if not google_sheets_config.get('enabled', False):
+                self.logger.debug("Google Sheets reporting is disabled")
+                return
+            
+            # Get configuration values
+            spreadsheet_id = google_sheets_config.get('spreadsheet_id', '')
+            sheet_name = google_sheets_config.get('sheet_name', 'Job Applications')
+            credentials_path = google_sheets_config.get('credentials_path', 'google_credentials.json')
+            
+            # Validate configuration
+            if not spreadsheet_id or spreadsheet_id == 'your_spreadsheet_id_here':
+                self.logger.warning("Google Sheets reporting enabled but no valid spreadsheet_id configured")
+                return
+            
+            # Initialize and use Google Sheets reporter
+            self.logger.info("Initializing Google Sheets reporting...")
+            reporter = GoogleSheetsReporter(
+                spreadsheet_id=spreadsheet_id,
+                sheet_name=sheet_name,
+                credentials_path=credentials_path
+            )
+            
+            # Test connection first
+            if reporter.test_connection():
+                # Report the applications
+                if reporter.append_applications(summary):
+                    self.logger.info("Successfully reported applications to Google Sheets")
+                else:
+                    self.logger.warning("Failed to report applications to Google Sheets")
+            else:
+                self.logger.warning("Google Sheets connection test failed, skipping reporting")
+                
+        except Exception as e:
+            self.logger.error(f"Error in post-run Google Sheets reporting: {str(e)}")
+            # Don't let reporting errors crash the main application
 
 def parse_arguments():
     """Parse command line arguments"""

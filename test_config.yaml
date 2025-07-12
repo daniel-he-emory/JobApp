@@ -1,0 +1,80 @@
+# TEST CONFIGURATION - For demonstrating the system
+# This shows the agent working without real credentials
+
+credentials:
+  linkedin:
+    email: "test_user@example.com"
+    password: "test_password"
+  
+  wellfound:
+    email: "test_user@example.com"
+    password: "test_password"
+  
+  verification_email:
+    address: "test_email@gmail.com"
+    password: "test_app_password"
+    imap_server: "imap.gmail.com"
+    imap_port: 993
+
+search_settings:
+  default_keywords:
+    - "Software Engineer"
+    - "Full Stack Developer"
+    - "Backend Engineer"
+  
+  default_locations:
+    - "Remote"
+    - "San Francisco"
+    - "New York"
+  
+  experience_levels:
+    - "Mid-Senior level"
+    - "Senior level"
+  
+  date_posted: "Past week"
+  easy_apply_only: true
+  remote_options: "Remote"
+
+application:
+  max_applications_per_session: 3
+  max_applications_per_platform: 5
+  delay_between_applications: 10
+  
+  resume_path: "./documents/resume.pdf"
+  
+  personal_info:
+    first_name: "John"
+    last_name: "Smith"
+    phone_number: "555-123-4567"
+  
+  default_answers:
+    years_experience: "3-5 years"
+    willing_to_relocate: false
+    authorized_to_work: true
+    require_sponsorship: false
+    salary_expectation: "Competitive"
+    availability: "2 weeks notice"
+
+state:
+  storage_type: "sqlite"
+  database_path: "./data/test_applications.db"
+
+browser:
+  headless: false  # SET TO FALSE TO SEE THE BROWSER
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+  window_size:
+    width: 1920
+    height: 1080
+
+logging:
+  level: "DEBUG"  # VERBOSE LOGGING
+  log_file: "./logs/test_job_agent.log"
+
+platforms:
+  linkedin:
+    enabled: true
+  wellfound:
+    enabled: true
+
+google_sheets:
+  enabled: false  # Disable for testing

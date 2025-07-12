@@ -63,6 +63,12 @@ application:
   cover_letter_template: "./documents/cover_letter_template.txt"
   
   # Default application answers
+  # Personal information for application forms
+  personal_info:
+    first_name: "Your First Name"
+    last_name: "Your Last Name"
+    phone_number: "Your Phone Number"
+  
   default_answers:
     years_experience: "3-5 years"
     willing_to_relocate: false
@@ -106,3 +112,10 @@ platforms:
   # indeed:
   #   enabled: false
   #   search_url: "https://www.indeed.com/jobs"
+
+# Google Sheets Reporting (optional)
+google_sheets:
+  enabled: false  # Set to true to enable Google Sheets reporting
+  spreadsheet_id: "your_spreadsheet_id_here"  # Get from Google Sheets URL
+  sheet_name: "Job Applications"  # Name of the sheet within the spreadsheet
+  credentials_path: "google_credentials.json"  # Path to Google API credentials

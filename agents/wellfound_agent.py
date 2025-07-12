@@ -492,15 +492,21 @@ class WellfoundAgent(JobAgent):
                 field_context = f"{placeholder} {name}".lower()
                 
                 if 'first name' in field_context:
-                    await input_element.fill("John")  # TODO: Get from config
+                    first_name = self.config.get('application', {}).get('personal_info', {}).get('first_name', '')
+                    if first_name:
+                        await input_element.fill(first_name)
                 elif 'last name' in field_context:
-                    await input_element.fill("Doe")   # TODO: Get from config
+                    last_name = self.config.get('application', {}).get('personal_info', {}).get('last_name', '')
+                    if last_name:
+                        await input_element.fill(last_name)
                 elif 'email' in field_context:
                     email = self.config.get('credentials', {}).get('verification_email', {}).get('address', '')
                     if email:
                         await input_element.fill(email)
                 elif 'phone' in field_context:
-                    await input_element.fill("555-123-4567")  # TODO: Get from config
+                    phone_number = self.config.get('application', {}).get('personal_info', {}).get('phone_number', '')
+                    if phone_number:
+                        await input_element.fill(phone_number)
                 elif 'cover letter' in field_context or 'why' in field_context:
                     await input_element.fill("I am excited about this opportunity and would love to contribute to your team.")
             

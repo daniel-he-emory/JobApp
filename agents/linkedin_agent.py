@@ -1,12 +1,11 @@
 import asyncio
 import re
 from typing import List, Optional, Dict, Any
-from urllib.parse import urljoin, urlparse, parse_qs
+from urllib.parse import urljoin, urlparse
 import logging
 
 from base_agent import JobAgent, JobPosting, SearchCriteria
 from utils.email_verifier import GreenHouseEmailVerifier
-from utils.state_manager import StateManager
 
 class LinkedInAgent(JobAgent):
     """

@@ -14,6 +14,43 @@ This tool is for anyone frustrated with the job application process who is looki
 *   **Headless Operation**: Designed to run on a remote, headless Linux server.
 *   **Configuration Driven**: All user-specific settings (credentials, search parameters, proxy settings) are managed in a `config.yaml` file.
 
+## Quick Start
+
+### 🚀 Automated Setup (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/daniel-he-emory/JobApp.git
+cd JobApp
+
+# Run the automated setup script
+./setup.sh
+
+# Edit your configuration
+nano config/my_config.yaml
+
+# Test the setup
+./run.sh --dry-run --verbose
+
+# Start applying to jobs
+./run.sh --platforms linkedin --max-apps 3
+```
+
+### ⚡ Manual Setup
+
+If you prefer manual setup, see the detailed [SETUP_GUIDE.md](SETUP_GUIDE.md).
+
+### 🎯 Quick Commands
+
+```bash
+# Always use these commands to ensure virtual environment is active:
+./run.sh --help                           # Show all options
+./run.sh --dry-run                        # Test without applying
+./run.sh --platforms linkedin,wellfound   # Run specific platforms
+./run.sh --max-apps 5                     # Limit applications
+./run.sh --verbose                        # Detailed logging
+```
+
 ## Architecture Overview
 
 The project is structured as follows:
