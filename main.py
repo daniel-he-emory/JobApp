@@ -340,10 +340,13 @@ class JobApplicationOrchestrator:
                 self.logger.info("No jobs found matching criteria")
                 return summary
 
-            # Filter out already applied jobs
+            # Filter out already applied jobs using batch checking for efficiency
+            job_platform_pairs = [(job.job_id, platform_name) for job in jobs]
+            applied_status = self.state_manager.has_applied_batch(job_platform_pairs)
+            
             new_jobs = []
             for job in jobs:
-                if not self.state_manager.has_applied(job.job_id, platform_name):
+                if not applied_status.get((job.job_id, platform_name), False):
                     new_jobs.append(job)
                 else:
                     self.logger.debug(
