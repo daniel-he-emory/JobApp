@@ -39,29 +39,155 @@ class WellfoundAgent(JobAgent):
                 return False
             
             self.logger.info("Navigating to Wellfound login page")
-            await self.page.goto("https://wellfound.com/login")
-            await self.page.wait_for_load_state('networkidle', timeout=10000)
             
-            # Fill login form
-            await self.page.fill('input[name="user[email]"], input[type="email"]', credentials['email'])
-            await self.page.fill('input[name="user[password]"], input[type="password"]', credentials['password'])
+            # Try multiple login page URLs
+            login_urls = [
+                "https://wellfound.com/login",
+                "https://wellfound.com/sign_in",
+                "https://angel.co/login"  # Legacy URL
+            ]
             
-            # Click login button
-            await self.page.click('input[type="submit"], button:has-text("Sign in")')
+            page_loaded = False
+            for url in login_urls:
+                try:
+                    await self.page.goto(url, timeout=30000)
+                    await self.page.wait_for_load_state('domcontentloaded', timeout=20000)
+                    page_loaded = True
+                    self.logger.info(f"Successfully loaded login page: {url}")
+                    break
+                except Exception as e:
+                    self.logger.warning(f"Failed to load {url}: {str(e)}")
+                    continue
+            
+            if not page_loaded:
+                self.logger.error("Could not load any Wellfound login page")
+                return False
+            
+            # Wait for login form to be available
             await self.page.wait_for_timeout(3000)
             
-            # Check if login was successful
-            current_url = self.page.url
-            if 'wellfound.com/jobs' in current_url or 'wellfound.com/dashboard' in current_url:
-                self.logger.info("Wellfound login successful")
-                return True
-            elif 'verify' in current_url or 'confirm' in current_url:
-                self.logger.warning("Wellfound login requires email verification")
-                await self.page.wait_for_timeout(10000)  # Wait for manual intervention
-                return True
-            else:
-                self.logger.error("Wellfound login failed")
+            # Try multiple selectors for email field
+            email_selectors = [
+                'input[name="user[email]"]',
+                'input[type="email"]',
+                'input[placeholder*="email"]',
+                'input[id*="email"]',
+                '#user_email',
+                '.email-input'
+            ]
+            
+            email_filled = False
+            for selector in email_selectors:
+                try:
+                    await self.page.wait_for_selector(selector, timeout=5000)
+                    await self.page.fill(selector, credentials['email'])
+                    email_filled = True
+                    self.logger.info(f"Filled email with selector: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not email_filled:
+                self.logger.error("Could not find email input field")
                 return False
+            
+            # Try multiple selectors for password field
+            password_selectors = [
+                'input[name="user[password]"]',
+                'input[type="password"]',
+                'input[placeholder*="password"]',
+                'input[id*="password"]',
+                '#user_password',
+                '.password-input'
+            ]
+            
+            password_filled = False
+            for selector in password_selectors:
+                try:
+                    await self.page.wait_for_selector(selector, timeout=5000)
+                    await self.page.fill(selector, credentials['password'])
+                    password_filled = True
+                    self.logger.info(f"Filled password with selector: {selector}")
+                    break
+                except:
+                    continue
+            
+            if not password_filled:
+                self.logger.error("Could not find password input field")
+                return False
+            
+            # Try multiple selectors for submit button
+            submit_selectors = [
+                'input[type="submit"]',
+                'button:has-text("Sign in")',
+                'button:has-text("Login")',
+                'button:has-text("Log in")',
+                '.login-button',
+                '.signin-button',
+                'button[type="submit"]'
+            ]
+            
+            login_clicked = False
+            for selector in submit_selectors:
+                try:
+                    await self.page.wait_for_selector(selector, timeout=5000)
+                    if await self.page.is_visible(selector):
+                        await self.page.click(selector)
+                        login_clicked = True
+                        self.logger.info(f"Clicked login with selector: {selector}")
+                        break
+                except:
+                    continue
+            
+            if not login_clicked:
+                # Try pressing Enter as fallback
+                try:
+                    await self.page.keyboard.press('Enter')
+                    login_clicked = True
+                    self.logger.info("Submitted login form with Enter key")
+                except:
+                    self.logger.error("Could not submit login form")
+                    return False
+            
+            # Wait for login response
+            await self.page.wait_for_timeout(5000)
+            
+            # Check if login was successful
+            await self.page.wait_for_load_state('domcontentloaded', timeout=15000)
+            current_url = self.page.url
+            
+            # Success indicators
+            success_patterns = [
+                'wellfound.com/jobs',
+                'wellfound.com/dashboard', 
+                'wellfound.com/candidates',
+                'wellfound.com/startup',
+                'angel.co/jobs',
+                'angel.co/dashboard'
+            ]
+            
+            for pattern in success_patterns:
+                if pattern in current_url:
+                    self.logger.info("Wellfound login successful")
+                    return True
+            
+            # Check for verification requirements
+            verification_patterns = ['verify', 'confirm', 'check', 'email']
+            page_content = (await self.page.content()).lower()
+            
+            for pattern in verification_patterns:
+                if pattern in current_url or pattern in page_content:
+                    self.logger.warning("Wellfound login requires verification - proceeding anyway")
+                    return True
+            
+            # Check if we're still on login page (failed login)
+            if 'login' in current_url or 'sign' in current_url:
+                self.logger.error("Wellfound login failed - still on login page")
+                return False
+            
+            # If we got here, assume success
+            self.logger.info("Wellfound login appears successful")
+            return True
                 
         except Exception as e:
             self.logger.error(f"Wellfound login error: {str(e)}")

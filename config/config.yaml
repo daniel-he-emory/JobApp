@@ -18,14 +18,51 @@ credentials:
     imap_server: "imap.gmail.com"
     imap_port: 993
 
-# Proxy Configuration (optional)
+# Proxy Configuration (for IP rotation)
 proxy:
-  enabled: false
-  # Uncomment and configure if using proxy service
-  # host: "rotating-residential.brightdata.com"
-  # port: 22225
-  # username: "your_proxy_username"
-  # password: "your_proxy_password"
+  enabled: false  # Disable until working proxies are available
+  
+  # Premium residential proxy provider (SmartProxy)
+  smartproxy:
+    enabled: false  # Enable when ready to use SmartProxy
+    username: "your_smartproxy_username"
+    password: "your_smartproxy_password"
+    endpoint: "rotating-residential.smartproxy.com:10000"
+    protocol: "http"
+    session_type: "sticky"  # sticky or rotating
+    country: "US"  # Target country
+  
+  # Free/Public proxy servers for testing and fallback
+  fallback_proxies:
+    - host: "47.74.152.29"
+      port: 8888
+      protocol: "http"
+    - host: "103.149.53.120" 
+      port: 80
+      protocol: "http"
+    - host: "177.234.217.83"
+      port: 999
+      protocol: "http"
+    - host: "102.132.5.114"
+      port: 8080
+      protocol: "http"
+    - host: "194.233.73.103"
+      port: 443
+      protocol: "http"
+  
+  # Alternative premium providers (commented for reference)
+  # brightdata:
+  #   username: "your_brightdata_username"
+  #   password: "your_brightdata_password"
+  #   endpoint: "rotating-residential.brightdata.com:22225"
+  # oxylabs:
+  #   username: "your_oxylabs_username"
+  #   password: "your_oxylabs_password"
+  #   endpoint: "pr.oxylabs.io:7777"
+  
+  # Rotation settings
+  rotation_interval: 120  # Rotate every 2 minutes
+  validate_on_start: true
 
 # Job Search Configuration
 search_settings:
@@ -92,12 +129,24 @@ browser:
   window_size:
     width: 1440
     height: 900
-  # Anti-fingerprinting settings
+  # Enhanced anti-fingerprinting settings
   locale: "en-US"
   timezone: "America/New_York"
   device_memory: 8
   cpu_cores: 4
   randomize_viewport: true
+  
+  # Extreme anti-detection settings (to avoid rate limits without proxies)
+  extra_delays:
+    page_load: 10000   # Extra delay after page loads (ms)
+    between_actions: 5000  # Delay between actions (ms) 
+    typing_delay: 300   # Delay between keystrokes (ms)
+    session_delay: 30000  # Delay before starting session (ms)
+  
+  # Human-like behavior
+  random_mouse_movements: true
+  random_scrolling: true
+  typing_errors: true  # Simulate occasional typos
   
 # Logging Configuration
 logging:
@@ -128,3 +177,40 @@ google_sheets:
   spreadsheet_id: "1nY5Q6_JroKLly_OBA8FRYUSzR1rzGXX8u5XupbR-oTI"  # Get from Google Sheets URL
   sheet_name: "Sheet1"  # Use the default sheet name
   credentials_path: "google_credentials.json"  # Path to Google API credentials
+
+# CAPTCHA Solving Service
+captcha_solver:
+  enabled: false  # Enable when ready to use CAPTCHA solving
+  service: "2captcha"  # Service provider (2captcha, anti-captcha, etc.)
+  api_key: "your_2captcha_api_key_here"
+  timeout: 120  # Maximum time to wait for CAPTCHA solution (seconds)
+  retry_attempts: 3  # Number of retry attempts for failed CAPTCHAs
+  
+  # Service-specific settings
+  settings:
+    # 2captcha specific
+    polling_interval: 5  # How often to check for solution (seconds)
+    language: "en"  # Language for text-based CAPTCHAs
+    
+    # reCAPTCHA v2/v3 settings
+    recaptcha_timeout: 60
+    min_score: 0.3  # For reCAPTCHA v3 (0.1-0.9)
+    
+    # hCaptcha settings
+    hcaptcha_timeout: 60
+
+# Gemini AI API Configuration
+gemini:
+  api_key: "your_gemini_api_key_here"
+
+# AI Prompt Templates
+prompts:
+  score_job_relevance: "Analyze the following job posting and user profile. Return a JSON object with two keys: 'score' (an integer from 1 to 10 representing relevance) and 'reasoning' (a brief 50-word explanation). Job Posting: [JOB_DESCRIPTION]. User Profile: [USER_PROFILE]"
+  
+  generate_cover_letter: "Generate a professional, 3-paragraph cover letter (300-400 words) for the following role, tailored to the company and highlighting the candidate's relevant skills. Job Posting: [JOB_DESCRIPTION]. User Profile: [USER_PROFILE]"
+  
+  optimize_resume_keywords: "Optimize the following resume section to better match the keywords and skills in the job description. Return a JSON object with one key: 'optimized_text'. Job Description: [JOB_DESCRIPTION]. Resume Section: [RESUME_SECTION]"
+
+# AI Enhancement Settings
+ai:
+  relevance_threshold: 6  # Minimum score (1-10) for job to be considered relevant

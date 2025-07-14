@@ -16,6 +16,8 @@ This tool is for anyone frustrated with the job application process who is looki
 
 ## Quick Start
 
+For detailed setup instructions, see [QUICK_START_GUIDE.md](QUICK_START_GUIDE.md).
+
 ### 🚀 Automated Setup (Recommended)
 
 ```bash

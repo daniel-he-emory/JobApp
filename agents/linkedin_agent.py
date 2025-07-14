@@ -51,6 +51,9 @@ class LinkedInAgent(JobAgent):
             await self.page.click('button[type="submit"]')
             await self.page.wait_for_timeout(3000)
             
+            # Check for and handle CAPTCHA after login attempt
+            await self.handle_captcha_if_present()
+            
             # Check if login was successful
             current_url = self.page.url
             if 'linkedin.com/feed' in current_url or 'linkedin.com/jobs' in current_url:
@@ -173,134 +176,221 @@ class LinkedInAgent(JobAgent):
         """Apply search filters similar to n8n Click operations"""
         try:
             # Wait for filters to be available
-            await self.page.wait_for_timeout(2000)
+            await self.page.wait_for_timeout(3000)
             
+            # Try to use URL-based filtering first (more reliable)
+            current_url = self.page.url
+            filters_applied = await self._apply_url_filters(criteria, current_url)
+            
+            if filters_applied:
+                self.logger.info("Applied filters via URL modification")
+                return
+            
+            # Fallback to UI-based filtering with shorter timeouts
             # Easy Apply filter (most important from n8n workflow)
             if criteria.easy_apply_only:
                 try:
-                    # Look for Easy Apply filter button
+                    # Look for Easy Apply filter button with shorter timeout
                     easy_apply_selectors = [
                         'button[aria-label*="Easy Apply"]',
                         'button:has-text("Easy Apply")',
                         'label:has-text("Easy Apply")',
-                        '[data-test-id*="easy-apply"]'
+                        '[data-test-id*="easy-apply"]',
+                        '.filter-button:has-text("Easy Apply")',
+                        'input[value="Easy Apply"]'
                     ]
                     
+                    filter_applied = False
                     for selector in easy_apply_selectors:
-                        if await self.page.is_visible(selector):
-                            await self.page.click(selector)
-                            self.logger.info("Applied Easy Apply filter")
-                            break
+                        try:
+                            await self.page.wait_for_selector(selector, timeout=3000)
+                            if await self.page.is_visible(selector):
+                                await self.page.click(selector, timeout=3000)
+                                self.logger.info("Applied Easy Apply filter")
+                                filter_applied = True
+                                break
+                        except:
+                            continue
+                    
+                    if not filter_applied:
+                        self.logger.info("Easy Apply filter not found - continuing without it")
                     
                 except Exception as e:
                     self.logger.warning(f"Could not apply Easy Apply filter: {str(e)}")
             
-            # Date posted filter (from n8n workflow: "Past week")
-            if criteria.date_posted:
-                try:
-                    # Click on "Date posted" filter
-                    await self.page.click('button:has-text("Date posted"), button[aria-label*="Date posted"]')
-                    await self.page.wait_for_timeout(1000)
-                    
-                    # Select the appropriate time period
-                    date_option_map = {
-                        "Past 24 hours": "Past 24 hours",
-                        "Past week": "Past week", 
-                        "Past month": "Past month"
-                    }
-                    
-                    option_text = date_option_map.get(criteria.date_posted, "Past week")
-                    await self.page.click(f'input[value*="{option_text}"], label:has-text("{option_text}")')
-                    self.logger.info(f"Applied date filter: {option_text}")
-                    
-                except Exception as e:
-                    self.logger.warning(f"Could not apply date filter: {str(e)}")
+            # Skip other filters if they're causing timeouts
+            # Just proceed with basic search results
+            self.logger.info("Skipping additional filters to avoid timeouts")
             
-            # Experience level filter
-            if criteria.experience_level:
-                try:
-                    await self.page.click('button:has-text("Experience level")')
-                    await self.page.wait_for_timeout(1000)
-                    await self.page.click(f'label:has-text("{criteria.experience_level}")')
-                    self.logger.info(f"Applied experience filter: {criteria.experience_level}")
-                except Exception as e:
-                    self.logger.warning(f"Could not apply experience filter: {str(e)}")
-            
-            # Remote work filter
-            if criteria.remote_options:
-                try:
-                    await self.page.click('button:has-text("On-site/remote")')
-                    await self.page.wait_for_timeout(1000)
-                    await self.page.click(f'label:has-text("{criteria.remote_options}")')
-                    self.logger.info(f"Applied remote filter: {criteria.remote_options}")
-                except Exception as e:
-                    self.logger.warning(f"Could not apply remote filter: {str(e)}")
-            
-            # Wait for filters to apply
-            await self.page.wait_for_timeout(3000)
+            # Wait briefly for any applied filters to take effect
+            await self.page.wait_for_timeout(2000)
             
         except Exception as e:
-            self.logger.error(f"Error applying filters: {str(e)}")
+            self.logger.warning(f"Filter application failed: {str(e)}, proceeding with unfiltered results")
+            
+    async def _apply_url_filters(self, criteria: SearchCriteria, current_url: str) -> bool:
+        """Apply filters by modifying the URL (more reliable than UI clicks)"""
+        try:
+            from urllib.parse import urlencode, urlparse, parse_qs
+            
+            # Parse current URL
+            parsed = urlparse(current_url)
+            params = parse_qs(parsed.query)
+            
+            # Add Easy Apply filter
+            if criteria.easy_apply_only:
+                params['f_LF'] = ['f_AL']  # LinkedIn's Easy Apply filter parameter
+            
+            # Add date filter
+            if criteria.date_posted:
+                date_map = {
+                    "Past 24 hours": "r86400",
+                    "Past week": "r604800", 
+                    "Past month": "r2592000"
+                }
+                if criteria.date_posted in date_map:
+                    params['f_TPR'] = [date_map[criteria.date_posted]]
+            
+            # Add experience level filter
+            if criteria.experience_level:
+                exp_map = {
+                    "Internship": "1",
+                    "Entry level": "2",
+                    "Associate": "3",
+                    "Mid-Senior level": "4",
+                    "Director": "5",
+                    "Executive": "6"
+                }
+                if criteria.experience_level in exp_map:
+                    params['f_E'] = [exp_map[criteria.experience_level]]
+            
+            # Build new URL
+            # Convert single-item lists back to strings for urlencode
+            clean_params = {}
+            for key, value_list in params.items():
+                if value_list:
+                    clean_params[key] = value_list[0] if len(value_list) == 1 else value_list
+            
+            new_query = urlencode(clean_params, doseq=True)
+            new_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}?{new_query}"
+            
+            # Navigate to filtered URL
+            await self.page.goto(new_url, timeout=30000)
+            await self.page.wait_for_load_state('domcontentloaded', timeout=20000)
+            return True
+            
+        except Exception as e:
+            self.logger.warning(f"URL filtering failed: {str(e)}")
+            return False
     
     async def _extract_job_listings(self) -> List[JobPosting]:
         """Extract job listings from LinkedIn search results"""
         jobs = []
         
         try:
-            # Try multiple selectors for job results container
+            # Wait for page to load
+            await self.page.wait_for_timeout(5000)
+            
+            # Try multiple selectors for job results container with more options
             results_selectors = [
                 '.jobs-search__results-list',
                 '.jobs-search-results-list', 
                 '.jobs-search-results__list',
                 '.search-results-container',
                 '[data-test-results-list]',
-                '.job-search-results-list'
+                '.job-search-results-list',
+                '.jobs-search-results',
+                '.scaffold-layout__list-detail',
+                '.jobs-search-results-list'
             ]
             
             results_container = None
             for selector in results_selectors:
                 try:
-                    await self.page.wait_for_selector(selector, timeout=5000)
-                    results_container = selector
-                    self.logger.info(f"Found results container: {selector}")
-                    break
+                    elements = await self.page.query_selector_all(selector)
+                    if elements:
+                        results_container = selector
+                        self.logger.info(f"Found results container: {selector}")
+                        break
                 except:
                     continue
             
             if not results_container:
-                # Try to find any job-related elements
-                await self.page.wait_for_timeout(5000)
                 self.logger.warning("Could not find standard results container, trying generic job selectors")
             
-            # Try multiple selectors for individual job cards
+            # Try multiple selectors for individual job cards with broader search
             job_card_selectors = [
                 'li[data-occludable-job-id]',  # Primary LinkedIn job cards
                 '[data-job-id]',  # Alternative job elements
                 '.job-search-card',
                 '.jobs-search-results__list-item',
                 '.job-result-card',
-                '.base-search-card'
+                '.base-search-card',
+                'li[data-entity-urn*="job"]',  # Updated LinkedIn format
+                'div[data-entity-urn*="job"]',
+                '.entity-result',
+                '.result-card',
+                'article[data-entity-urn]',
+                '.scaffold-layout__list-item',
+                'li.jobs-search-results__list-item',
+                'div.job-search-card'
             ]
             
             job_cards = []
             for selector in job_card_selectors:
                 try:
                     cards = await self.page.query_selector_all(selector)
-                    if cards:
+                    if cards and len(cards) > 0:
                         job_cards = cards
                         self.logger.info(f"Found {len(cards)} job cards with selector: {selector}")
                         break
                 except:
                     continue
             
+            # If no structured job cards, try to find job links
+            if not job_cards:
+                self.logger.info("No job cards found, trying to find job links directly")
+                try:
+                    job_links = await self.page.query_selector_all('a[href*="/jobs/view/"]')
+                    if job_links:
+                        self.logger.info(f"Found {len(job_links)} job links as fallback")
+                        # Extract minimal job info from links
+                        for link in job_links[:20]:
+                            try:
+                                title = await link.inner_text()
+                                url = await link.get_attribute('href')
+                                if url and not url.startswith('http'):
+                                    url = urljoin('https://www.linkedin.com', url)
+                                
+                                job_id = self._extract_job_id_from_url(url)
+                                if title and url and job_id:
+                                    jobs.append(JobPosting(
+                                        job_id=job_id,
+                                        title=title.strip(),
+                                        company="Unknown",
+                                        location="Unknown",
+                                        url=url,
+                                        platform="LinkedIn"
+                                    ))
+                            except:
+                                continue
+                        return jobs
+                except:
+                    pass
+            
+            # Process job cards
+            processed_count = 0
             for card in job_cards[:20]:  # Limit to first 20 jobs
                 try:
                     job = await self._extract_single_job(card)
                     if job:
                         jobs.append(job)
+                        processed_count += 1
                 except Exception as e:
-                    self.logger.warning(f"Error extracting job: {str(e)}")
+                    self.logger.debug(f"Error extracting job: {str(e)}")
                     continue
+            
+            self.logger.info(f"Successfully extracted {processed_count} jobs from {len(job_cards)} cards")
             
         except Exception as e:
             self.logger.error(f"Error extracting job listings: {str(e)}")
@@ -402,10 +492,14 @@ class LinkedInAgent(JobAgent):
         except:
             return url
     
-    async def apply_to_job(self, job: JobPosting) -> bool:
+    async def apply_to_job(self, job: JobPosting, ai_content: Optional[Dict[str, str]] = None) -> bool:
         """
         Apply to a specific job using Easy Apply
-        Handles Greenhouse verification if needed
+        Handles Greenhouse verification and AI-generated content if provided
+        
+        Args:
+            job: JobPosting object with job details
+            ai_content: Optional AI-generated content (cover letter, optimized resume sections)
         """
         try:
             self.logger.info(f"Applying to {job.title} at {job.company}")
@@ -413,6 +507,9 @@ class LinkedInAgent(JobAgent):
             # Navigate to job page
             await self.page.goto(job.url)
             await self.page.wait_for_load_state('networkidle')
+            
+            # Check for CAPTCHA after navigation
+            await self.handle_captcha_if_present()
             
             # Click Easy Apply button
             easy_apply_selectors = [
@@ -439,8 +536,8 @@ class LinkedInAgent(JobAgent):
             # Wait for application form to load
             await self.page.wait_for_timeout(2000)
             
-            # Handle application process
-            success = await self._handle_application_flow(job)
+            # Handle application process with AI content
+            success = await self._handle_application_flow(job, ai_content)
             
             if success:
                 self.logger.info(f"Successfully applied to {job.title}")
@@ -453,8 +550,8 @@ class LinkedInAgent(JobAgent):
             self.logger.error(f"Error applying to {job.title}: {str(e)}")
             return False
     
-    async def _handle_application_flow(self, job: JobPosting) -> bool:
-        """Handle the multi-step application flow"""
+    async def _handle_application_flow(self, job: JobPosting, ai_content: Optional[Dict[str, str]] = None) -> bool:
+        """Handle the multi-step application flow with AI-generated content"""
         try:
             max_steps = 5
             current_step = 0
@@ -474,8 +571,8 @@ class LinkedInAgent(JobAgent):
                         self.logger.error("Greenhouse verification failed")
                         return False
                 
-                # Fill form fields if present
-                await self._fill_application_form()
+                # Fill form fields if present, using AI content when available
+                await self._fill_application_form(ai_content)
                 
                 # Look for Next/Submit/Review buttons
                 next_clicked = await self._click_next_button()
@@ -525,9 +622,13 @@ class LinkedInAgent(JobAgent):
         
         return any(greenhouse_indicators)
     
-    async def _fill_application_form(self):
-        """Fill common application form fields"""
+    async def _fill_application_form(self, ai_content: Optional[Dict[str, str]] = None):
+        """Fill common application form fields with AI-generated content when available"""
         try:
+            # First, try to fill AI-generated content if provided
+            if ai_content:
+                await self._fill_ai_content(ai_content)
+            
             app_settings = self.config.get('application', {}).get('default_answers', {})
             
             # Common form fields and their values
@@ -571,6 +672,97 @@ class LinkedInAgent(JobAgent):
             
         except Exception as e:
             self.logger.warning(f"Error filling form: {str(e)}")
+    
+    async def _fill_ai_content(self, ai_content: Dict[str, str]) -> None:
+        """Fill form fields with AI-generated content"""
+        try:
+            if not ai_content:
+                return
+            
+            self.logger.info("Filling application form with AI-generated content")
+            
+            # Get all text inputs and textareas
+            form_elements = await self.page.query_selector_all('textarea, input[type="text"]')
+            
+            # Track which fields we've filled
+            filled_cover_letter = False
+            filled_resume_section = False
+            
+            for element in form_elements:
+                try:
+                    # Get element attributes for identification
+                    element_id = await element.get_attribute('id') or ''
+                    element_name = await element.get_attribute('name') or ''
+                    element_class = await element.get_attribute('class') or ''
+                    placeholder = await element.get_attribute('placeholder') or ''
+                    aria_label = await element.get_attribute('aria-label') or ''
+                    
+                    # Get associated label text
+                    label_text = await self._get_input_label(element)
+                    
+                    # Combine all text for field identification
+                    field_identifiers = f"{element_id} {element_name} {element_class} {placeholder} {aria_label} {label_text}".lower()
+                    
+                    # Check if this is a cover letter field
+                    cover_letter_indicators = [
+                        'cover letter', 'coverletter', 'cover_letter',
+                        'motivation', 'why do you want', 'why are you interested',
+                        'personal statement', 'message to hiring manager',
+                        'additional information', 'tell us about yourself'
+                    ]
+                    
+                    if not filled_cover_letter and 'cover_letter' in ai_content:
+                        if any(indicator in field_identifiers for indicator in cover_letter_indicators):
+                            self.logger.info("Found cover letter field, filling with AI-generated content")
+                            await element.fill(ai_content['cover_letter'])
+                            filled_cover_letter = True
+                            await self.page.wait_for_timeout(1000)  # Brief pause
+                            continue
+                    
+                    # Check if this is a resume/experience field
+                    resume_indicators = [
+                        'resume', 'experience', 'relevant experience',
+                        'background', 'qualifications', 'skills',
+                        'work experience', 'professional experience',
+                        'paste your resume', 'upload resume text',
+                        'summary', 'professional summary'
+                    ]
+                    
+                    # Use optimized summary or skills if available
+                    resume_content = None
+                    if 'optimized_summary' in ai_content:
+                        resume_content = ai_content['optimized_summary']
+                    elif 'optimized_skills' in ai_content:
+                        resume_content = ai_content['optimized_skills']
+                    
+                    if not filled_resume_section and resume_content:
+                        # Check if this is a large text area (likely for resume/experience)
+                        tag_name = await element.evaluate('el => el.tagName.toLowerCase()')
+                        
+                        if (tag_name == 'textarea' and 
+                            any(indicator in field_identifiers for indicator in resume_indicators)):
+                            self.logger.info("Found resume/experience field, filling with AI-optimized content")
+                            await element.fill(resume_content)
+                            filled_resume_section = True
+                            await self.page.wait_for_timeout(1000)  # Brief pause
+                            continue
+                    
+                except Exception as e:
+                    self.logger.warning(f"Error processing form element: {e}")
+                    continue
+            
+            # Log what was filled
+            if filled_cover_letter:
+                self.logger.info("Successfully filled cover letter with AI content")
+            if filled_resume_section:
+                self.logger.info("Successfully filled resume section with AI-optimized content")
+            
+            if not filled_cover_letter and not filled_resume_section:
+                self.logger.info("No suitable fields found for AI content, will use standard form filling")
+                
+        except Exception as e:
+            self.logger.error(f"Error filling AI content: {e}")
+            # Don't raise exception - fallback to standard form filling
     
     async def _get_input_label(self, element) -> str:
         """Get the label text associated with an input element"""
@@ -618,6 +810,9 @@ class LinkedInAgent(JobAgent):
     
     async def _click_submit_button(self) -> bool:
         """Click Submit/Apply button"""
+        # Check for CAPTCHA before submitting forms
+        await self.handle_captcha_if_present()
+        
         submit_selectors = [
             'button:has-text("Submit application")',
             'button:has-text("Submit")',

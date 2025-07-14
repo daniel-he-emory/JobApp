@@ -26,7 +26,10 @@ sys.path.insert(0, str(Path(__file__).parent))
 from config.config_loader import ConfigLoader
 from utils.state_manager import StateManager
 from utils.google_sheets_reporter import GoogleSheetsReporter
-from base_agent import SearchCriteria
+from utils.gemini_client import GeminiClient, create_gemini_client_from_config
+from utils.resume_parser import ResumeParser, create_resume_parser_from_config
+from services.ai_enhancer import AIEnhancer, create_ai_enhancer_from_config
+from base_agent import SearchCriteria, JobPosting
 from agents.linkedin_agent import LinkedInAgent
 
 # Import additional agents as they're implemented
@@ -45,11 +48,69 @@ class JobApplicationOrchestrator:
         self.state_manager = self._init_state_manager()
         self.logger = self._setup_logging()
         
+        # AI services (initialized in async factory)
+        self.gemini_client = None
+        self.resume_parser = None
+        self.ai_enhancer = None
+        self.structured_resume = None
+        
         # Available agents
         self.available_agents = {
             'linkedin': LinkedInAgent,
             'wellfound': WellfoundAgent,
         }
+    
+    @classmethod
+    async def create(cls, config_path: str = "config/config.yaml", dry_run: bool = False, 
+                    enable_ai: bool = True) -> 'JobApplicationOrchestrator':
+        """
+        Async factory method to create orchestrator with AI services
+        
+        Args:
+            config_path: Path to configuration file
+            dry_run: Whether to run in simulation mode
+            enable_ai: Whether to initialize AI services
+            
+        Returns:
+            Fully initialized orchestrator instance
+        """
+        # Create basic orchestrator
+        orchestrator = cls(config_path, dry_run)
+        
+        if enable_ai and not dry_run:
+            try:
+                # Initialize AI services
+                await orchestrator._init_ai_services()
+                orchestrator.logger.info("AI services initialized successfully")
+            except Exception as e:
+                orchestrator.logger.warning(f"AI services initialization failed: {e}")
+                orchestrator.logger.info("Continuing without AI enhancements")
+        
+        return orchestrator
+    
+    async def _init_ai_services(self) -> None:
+        """Initialize AI enhancement services"""
+        try:
+            # Initialize Gemini client
+            self.gemini_client = create_gemini_client_from_config(self.config)
+            
+            # Initialize resume parser
+            self.resume_parser = create_resume_parser_from_config(self.config, self.gemini_client)
+            
+            # Get structured resume data
+            self.structured_resume = await self.resume_parser.get_structured_resume()
+            
+            # Initialize AI enhancer
+            self.ai_enhancer = create_ai_enhancer_from_config(
+                self.config, self.gemini_client, self.structured_resume
+            )
+            
+            self.logger.info("AI services ready for candidate: %s", 
+                           self.structured_resume.get('full_name', 'Unknown'))
+            
+        except Exception as e:
+            self.logger.error(f"Failed to initialize AI services: {e}")
+            raise
         
     def _init_state_manager(self) -> StateManager:
         """Initialize state management system"""
@@ -198,7 +259,7 @@ class JobApplicationOrchestrator:
     
     async def run_agent(self, platform_name: str, search_criteria: SearchCriteria, 
                        max_applications: int) -> Dict[str, Any]:
-        """Run a specific platform agent"""
+        """Run a specific platform agent with AI-enhanced job filtering and content generation"""
         try:
             agent_class = self.available_agents[platform_name]
             credentials = self.config_loader.get_credentials(platform_name)
@@ -213,48 +274,14 @@ class JobApplicationOrchestrator:
             # Initialize agent
             agent = agent_class(self.config, proxy_config)
             
-            # Filter jobs to avoid duplicates
-            def filter_new_jobs(jobs):
-                new_jobs = []
-                for job in jobs:
-                    if not self.state_manager.has_applied(job.job_id, platform_name):
-                        new_jobs.append(job)
-                    else:
-                        self.logger.info(f"Skipping already applied job: {job.title} at {job.company}")
-                return new_jobs
-            
-            # Run automation with custom filtering
-            original_search = agent.search_jobs
-            
-            async def filtered_search(criteria):
-                jobs = await original_search(criteria)
-                return filter_new_jobs(jobs)
-            
-            agent.search_jobs = filtered_search
-            
-            # Track applications in state manager
-            original_apply = agent.apply_to_job
-            
-            async def tracked_apply(job):
-                success = await original_apply(job)
-                if success:
-                    self.state_manager.record_application(
-                        job_id=job.job_id,
-                        platform=platform_name,
-                        title=job.title,
-                        company=job.company,
-                        url=job.url,
-                        status='applied'
-                    )
-                return success
-            
-            agent.apply_to_job = tracked_apply
-            
-            # Execute automation
-            summary = await agent.run_automation(search_criteria, max_applications)
-            
-            self.logger.info(f"Completed {platform_name} agent: {summary}")
-            return summary
+            # Check if AI services are available
+            ai_enabled = self.ai_enhancer is not None
+            if ai_enabled:
+                self.logger.info("AI services enabled - using intelligent job filtering and content generation")
+                return await self._run_agent_with_ai(agent, platform_name, search_criteria, max_applications)
+            else:
+                self.logger.info("AI services not available - using standard automation")
+                return await self._run_agent_standard(agent, platform_name, search_criteria, max_applications)
             
         except Exception as e:
             self.logger.error(f"Error running {platform_name} agent: {str(e)}")
@@ -267,6 +294,228 @@ class JobApplicationOrchestrator:
                 'applied_jobs': [],
                 'error_message': str(e)
             }
+    
+    async def _run_agent_with_ai(self, agent, platform_name: str, search_criteria: SearchCriteria,
+                               max_applications: int) -> Dict[str, Any]:
+        """Run agent with AI-enhanced job filtering and content generation"""
+        summary = {
+            'platform': platform_name,
+            'jobs_found': 0,
+            'applications_submitted': 0,
+            'errors': 0,
+            'applied_jobs': [],
+            'ai_filtered_jobs': 0,
+            'ai_generated_content': 0
+        }
+        
+        try:
+            # Initialize agent browser
+            await agent.initialize_browser()
+            
+            # Login to platform
+            login_success = await agent.login()
+            if not login_success:
+                raise Exception("Login failed")
+            
+            # Search for jobs
+            self.logger.info("Searching for jobs...")
+            jobs = await agent.search_jobs(search_criteria)
+            summary['jobs_found'] = len(jobs)
+            
+            if not jobs:
+                self.logger.info("No jobs found matching criteria")
+                return summary
+            
+            # Filter out already applied jobs
+            new_jobs = []
+            for job in jobs:
+                if not self.state_manager.has_applied(job.job_id, platform_name):
+                    new_jobs.append(job)
+                else:
+                    self.logger.debug(f"Skipping already applied job: {job.title} at {job.company}")
+            
+            if not new_jobs:
+                self.logger.info("All found jobs have already been applied to")
+                return summary
+            
+            # Get AI filtering threshold from config
+            ai_score_threshold = self.config.get('ai', {}).get('relevance_threshold', 6)
+            
+            # Process jobs with AI filtering and content generation
+            qualified_jobs = []
+            applications_submitted = 0
+            
+            for job in new_jobs[:max_applications * 3]:  # Check more jobs than we plan to apply to
+                try:
+                    # Score job relevance
+                    self.logger.info(f"Analyzing job relevance: {job.title} at {job.company}")
+                    relevance_result = await self.ai_enhancer.score_job_relevance(job)
+                    
+                    score = relevance_result.get('score', 0)
+                    reasoning = relevance_result.get('reasoning', 'No reasoning provided')
+                    
+                    self.logger.info(f"Job relevance score: {score}/10 - {reasoning}")
+                    
+                    if score >= ai_score_threshold:
+                        self.logger.info(f"Job passed AI filter (score: {score} >= {ai_score_threshold})")
+                        
+                        # Generate AI content for this job
+                        ai_content = await self._generate_ai_content(job)
+                        
+                        # Add to qualified jobs with AI content
+                        qualified_jobs.append({
+                            'job': job,
+                            'ai_content': ai_content,
+                            'relevance_score': score,
+                            'relevance_reasoning': reasoning
+                        })
+                        
+                        summary['ai_generated_content'] += 1
+                        
+                        # Stop if we have enough qualified jobs
+                        if len(qualified_jobs) >= max_applications:
+                            break
+                    else:
+                        self.logger.info(f"Job filtered out by AI (score: {score} < {ai_score_threshold})")
+                        summary['ai_filtered_jobs'] += 1
+                        
+                except Exception as e:
+                    self.logger.error(f"Error processing job with AI: {e}")
+                    summary['errors'] += 1
+                    continue
+            
+            # Apply to qualified jobs with AI-generated content
+            for job_data in qualified_jobs:
+                try:
+                    job = job_data['job']
+                    ai_content = job_data['ai_content']
+                    
+                    self.logger.info(f"Applying to high-relevance job: {job.title} at {job.company}")
+                    
+                    # Apply to job with AI-generated content
+                    success = await agent.apply_to_job(job, ai_content)
+                    
+                    if success:
+                        applications_submitted += 1
+                        summary['applied_jobs'].append({
+                            'title': job.title,
+                            'company': job.company,
+                            'url': job.url,
+                            'relevance_score': job_data['relevance_score'],
+                            'ai_enhanced': True
+                        })
+                        
+                        # Record in state manager
+                        self.state_manager.record_application(
+                            job_id=job.job_id,
+                            platform=platform_name,
+                            title=job.title,
+                            company=job.company,
+                            url=job.url,
+                            status='applied'
+                        )
+                        
+                        self.logger.info(f"Successfully applied to {job.title} with AI enhancements")
+                    
+                    # Rate limiting between applications
+                    await asyncio.sleep(2)
+                    
+                except Exception as e:
+                    self.logger.error(f"Error applying to {job.title}: {str(e)}")
+                    summary['errors'] += 1
+                    continue
+            
+            summary['applications_submitted'] = applications_submitted
+            
+            self.logger.info(f"AI-enhanced automation completed: {applications_submitted} applications submitted")
+            return summary
+            
+        except Exception as e:
+            self.logger.error(f"Error in AI-enhanced agent run: {str(e)}")
+            summary['errors'] += 1
+            raise
+        finally:
+            await agent.cleanup()
+    
+    async def _run_agent_standard(self, agent, platform_name: str, search_criteria: SearchCriteria,
+                                max_applications: int) -> Dict[str, Any]:
+        """Run agent with standard automation (fallback when AI is not available)"""
+        # Filter jobs to avoid duplicates
+        def filter_new_jobs(jobs):
+            new_jobs = []
+            for job in jobs:
+                if not self.state_manager.has_applied(job.job_id, platform_name):
+                    new_jobs.append(job)
+                else:
+                    self.logger.info(f"Skipping already applied job: {job.title} at {job.company}")
+            return new_jobs
+        
+        # Run automation with custom filtering
+        original_search = agent.search_jobs
+        
+        async def filtered_search(criteria):
+            jobs = await original_search(criteria)
+            return filter_new_jobs(jobs)
+        
+        agent.search_jobs = filtered_search
+        
+        # Track applications in state manager
+        original_apply = agent.apply_to_job
+        
+        async def tracked_apply(job, ai_content=None):
+            success = await original_apply(job, ai_content)
+            if success:
+                self.state_manager.record_application(
+                    job_id=job.job_id,
+                    platform=platform_name,
+                    title=job.title,
+                    company=job.company,
+                    url=job.url,
+                    status='applied'
+                )
+            return success
+        
+        agent.apply_to_job = tracked_apply
+        
+        # Execute automation
+        summary = await agent.run_automation(search_criteria, max_applications)
+        
+        self.logger.info(f"Completed {platform_name} agent: {summary}")
+        return summary
+    
+    async def _generate_ai_content(self, job: JobPosting) -> Dict[str, str]:
+        """Generate AI-enhanced content for a job application"""
+        ai_content = {}
+        
+        try:
+            # Generate cover letter
+            self.logger.debug("Generating personalized cover letter...")
+            cover_letter = await self.ai_enhancer.generate_cover_letter(job)
+            ai_content['cover_letter'] = cover_letter
+            
+            # Optimize resume sections (example: summary/skills)
+            if self.structured_resume.get('summary'):
+                self.logger.debug("Optimizing resume summary...")
+                optimized_summary = await self.ai_enhancer.optimize_resume_section(
+                    job, self.structured_resume['summary']
+                )
+                ai_content['optimized_summary'] = optimized_summary
+            
+            if self.structured_resume.get('skills'):
+                skills_text = ', '.join(self.structured_resume['skills'])
+                self.logger.debug("Optimizing skills section...")
+                optimized_skills = await self.ai_enhancer.optimize_resume_section(
+                    job, skills_text
+                )
+                ai_content['optimized_skills'] = optimized_skills
+            
+            self.logger.debug("AI content generation completed successfully")
+            
+        except Exception as e:
+            self.logger.error(f"Error generating AI content: {e}")
+            # Return partial content if some generation succeeded
+        
+        return ai_content
     
     async def run_automation(self, platforms: List[str] = None, 
                            max_applications_per_platform: int = 5) -> Dict[str, Any]:
@@ -478,8 +727,12 @@ async def main():
     args = parse_arguments()
     
     try:
-        # Initialize orchestrator with dry run flag
-        orchestrator = JobApplicationOrchestrator(args.config, dry_run=args.dry_run)
+        # Initialize orchestrator with AI services
+        orchestrator = await JobApplicationOrchestrator.create(
+            config_path=args.config, 
+            dry_run=args.dry_run,
+            enable_ai=True
+        )
         
         # Set verbose logging if requested
         if args.verbose:

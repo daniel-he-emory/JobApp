@@ -50,3 +50,9 @@ google-auth-oauthlib>=0.7.0
 # Anti-detection and stealth
 playwright-stealth>=2.0.0
 
+# AI and Machine Learning
+google-generativeai>=0.3.0
+
+# PDF processing
+PyPDF2>=3.0.0
+
