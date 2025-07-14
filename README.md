@@ -1,24 +1,47 @@
-# Autonomous Job Application Agent
+# AI-Enhanced Autonomous Job Application Agent
 
-This project is a sophisticated, end-to-end autonomous agent for applying to jobs. It is written in Python using Playwright and is designed to be robust, modular, and well-documented.
+This project is a sophisticated, enterprise-grade autonomous agent for applying to jobs with **AI-powered intelligent filtering and personalized content generation**. Built with Python, Playwright, and Google Gemini AI, it's designed to be undetectable, efficient, and highly successful.
 
 ## Target Audience
-This tool is for anyone frustrated with the job application process who is looking for a seamless way to automate applications, especially for roles that use Greenhouse and require email verification.
+This tool is for job seekers who want to:
+- Automate high-volume job applications with intelligent filtering
+- Generate personalized cover letters and optimized content for each job
+- Bypass bot detection systems with enterprise-grade evasion
+- Scale their job search while maintaining high application quality
 
-## Features
+## 🤖 AI-Enhanced Features
 
-*   **Multi-Platform Modularity**: The architecture is extensible to support multiple job boards. It uses a base `JobAgent` class with specific implementations for each platform (e.g., `LinkedInAgent`, `WellfoundAgent`).
-*   **Greenhouse Email Verification Bypass**: The agent can autonomously handle Greenhouse email verification by parsing verification links from a dedicated Gmail account.
-*   **Anonymity & Anti-Tracking**: Integrates with rotating residential proxy services (e.g., Bright Data, Oxylabs) to prevent IP tracking and blocking.
-*   **State Management**: Prevents duplicate applications by tracking applied jobs in a local SQLite database.
-*   **Headless Operation**: Designed to run on a remote, headless Linux server.
-*   **Configuration Driven**: All user-specific settings (credentials, search parameters, proxy settings) are managed in a `config.yaml` file.
+*   **Intelligent Job Filtering**: AI-powered relevance scoring (1-10 scale) ensures you only apply to suitable positions
+*   **Personalized Content Generation**: AI-generated cover letters and resume optimization for each specific job
+*   **Resume Parsing & Caching**: Automatic PDF resume analysis with structured data extraction
+*   **Smart Application Strategy**: Configurable relevance threshold to focus on high-potential opportunities
+*   **Multi-Platform AI Integration**: LinkedIn and Wellfound agents enhanced with AI content injection
+
+## 🛡️ Enterprise Anti-Detection
+
+*   **Residential Proxy Integration**: SmartProxy, Bright Data, Oxylabs support with IP rotation
+*   **CAPTCHA Solving**: Automated reCAPTCHA v2/v3 solving with 2captcha/Anti-Captcha services
+*   **Advanced Browser Stealth**: Navigator.webdriver spoofing, fingerprint randomization, human behavior simulation
+*   **Greenhouse Email Verification Bypass**: Autonomous Gmail IMAP integration for verification handling
+*   **Enhanced Evasion**: 18+ stealth parameters, realistic device specs, human-like interaction patterns
+
+## 📊 Core Platform Features
+
+*   **Multi-Platform Architecture**: Extensible base `JobAgent` class with LinkedIn and Wellfound implementations
+*   **State Management**: SQLite database prevents duplicate applications with comprehensive tracking
+*   **Google Sheets Integration**: Automatic application logging with OAuth2 authentication
+*   **Production-Ready**: Designed for headless Linux servers with enterprise scalability
+*   **Configuration Driven**: Comprehensive YAML configuration for all settings and AI parameters
 
 ## Quick Start
 
-For detailed setup instructions, see [QUICK_START_GUIDE.md](QUICK_START_GUIDE.md).
+### 🚀 Prerequisites
+1. **Gemini API Key**: Get from [Google AI Studio](https://aistudio.google.com/)
+2. **Resume PDF**: Your resume file for AI parsing
+3. **Platform Credentials**: LinkedIn, Wellfound accounts
+4. **Gmail App Password**: For Greenhouse verification
 
-### 🚀 Automated Setup (Recommended)
+### ⚡ Installation
 
 ```bash
 # Clone the repository
@@ -28,19 +51,38 @@ cd JobApp
 # Run the automated setup script
 ./setup.sh
 
-# Edit your configuration
+# Configure your settings (copy from config.yaml template)
+cp config/config.yaml config/my_config.yaml
 nano config/my_config.yaml
-
-# Test the setup
-./run.sh --dry-run --verbose
-
-# Start applying to jobs
-./run.sh --platforms linkedin --max-apps 3
 ```
 
-### ⚡ Manual Setup
+### 🤖 Configuration Setup
+```yaml
+# Essential AI Configuration
+gemini:
+  api_key: "your_gemini_api_key_here"
 
-If you prefer manual setup, see the detailed [SETUP_GUIDE.md](SETUP_GUIDE.md).
+# Resume for AI parsing
+application:
+  resume_path: "./documents/resume.pdf"
+
+# AI Enhancement Settings
+ai:
+  relevance_threshold: 6  # Only apply to jobs scoring 6+ out of 10
+```
+
+### 🚀 Usage
+
+```bash
+# Test AI configuration
+./run.sh --dry-run --verbose
+
+# Start AI-enhanced applications
+./run.sh --platforms linkedin --max-apps 5
+
+# Full automation with both platforms
+./run.sh --platforms linkedin,wellfound --max-apps 10
+```
 
 ### 🎯 Quick Commands
 
@@ -53,19 +95,44 @@ If you prefer manual setup, see the detailed [SETUP_GUIDE.md](SETUP_GUIDE.md).
 ./run.sh --verbose                        # Detailed logging
 ```
 
-## Architecture Overview
+## 🏗️ Architecture Overview
 
-The project is structured as follows:
+### Core System Components:
+```
+JobApp/
+├── 🤖 AI Services
+│   ├── services/ai_enhancer.py         # AI job scoring & content generation
+│   ├── utils/gemini_client.py          # Google Gemini AI integration
+│   └── utils/resume_parser.py          # PDF resume parsing with caching
+│
+├── 🛡️ Anti-Detection & Security
+│   ├── utils/stealth_browser.py        # Browser fingerprint spoofing
+│   ├── utils/proxy_manager.py          # Residential proxy rotation
+│   ├── utils/captcha_solver.py         # Automated CAPTCHA solving
+│   └── utils/email_verifier.py         # Greenhouse bypass automation
+│
+├── 🎯 Job Application Agents
+│   ├── base_agent.py                   # Abstract base with AI integration
+│   ├── agents/linkedin_agent.py        # LinkedIn automation + AI content
+│   └── agents/wellfound_agent.py       # Wellfound automation + AI content
+│
+├── 📊 Orchestration & Tracking
+│   ├── main.py                         # Main orchestrator with AI workflow
+│   ├── utils/state_manager.py          # SQLite application tracking
+│   └── utils/google_sheets_reporter.py # Automatic spreadsheet logging
+│
+└── ⚙️ Configuration & Setup
+    ├── config/config.yaml              # Comprehensive system configuration
+    ├── setup.sh                        # Automated environment setup
+    └── run.sh                          # Production execution script
+```
 
-*   `main.py`: The main execution script that orchestrates the agents.
-*   `config.yaml`: Configuration file for all user-specific settings.
-*   `database.py`: Handles state management with an SQLite database.
-*   `agents/`: Directory for job board specific agents.
-    *   `base_agent.py`: Defines the abstract base class for all agents.
-    *   `linkedin_agent.py`: Implementation for applying to jobs on LinkedIn.
-*   `utils/`: Directory for utility modules.
-    *   `email_parser.py`: Module for parsing emails to find verification links.
-    *   `proxy_manager.py`: Module for managing proxy configurations.
+### 🔄 AI-Enhanced Workflow:
+1. **AI Job Analysis**: Score job relevance (1-10) using Gemini AI
+2. **Intelligent Filtering**: Only apply to jobs meeting threshold criteria
+3. **Content Generation**: Create personalized cover letters and optimize resume
+4. **Stealth Application**: Apply with enterprise anti-detection measures
+5. **Automatic Tracking**: Log results to database and Google Sheets
 
 ---
 
