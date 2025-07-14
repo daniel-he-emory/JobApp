@@ -1,15 +1,16 @@
 import pytest
-import os
 import tempfile
 import sqlite3
 from pathlib import Path
 import yaml
+
 
 @pytest.fixture
 def temp_dir():
     """Create a temporary directory for test files"""
     with tempfile.TemporaryDirectory() as tmpdir:
         yield Path(tmpdir)
+
 
 @pytest.fixture
 def sample_config():
@@ -21,7 +22,7 @@ def sample_config():
                 'password': 'test_password'
             },
             'wellfound': {
-                'email': 'test@example.com', 
+                'email': 'test@example.com',
                 'password': 'test_password'
             },
             'verification_email': {
@@ -66,6 +67,7 @@ def sample_config():
         }
     }
 
+
 @pytest.fixture
 def config_file(temp_dir, sample_config):
     """Create a temporary config file"""
@@ -74,12 +76,13 @@ def config_file(temp_dir, sample_config):
         yaml.dump(sample_config, f)
     return config_path
 
+
 @pytest.fixture
 def test_db(temp_dir):
     """Create a test SQLite database"""
     db_path = temp_dir / 'test.db'
     conn = sqlite3.connect(str(db_path))
-    
+
     # Create applications table
     conn.execute('''
         CREATE TABLE applications (
@@ -94,7 +97,7 @@ def test_db(temp_dir):
             application_data TEXT
         )
     ''')
-    
+
     # Create statistics table
     conn.execute('''
         CREATE TABLE statistics (
@@ -106,10 +109,11 @@ def test_db(temp_dir):
             session_duration_minutes REAL
         )
     ''')
-    
+
     conn.commit()
     conn.close()
     return db_path
+
 
 @pytest.fixture
 def mock_browser():
@@ -117,62 +121,62 @@ def mock_browser():
     class MockBrowser:
         def __init__(self):
             self.headless = True
-            
+
         async def new_context(self, **kwargs):
             return MockBrowserContext()
-    
+
     class MockBrowserContext:
         def __init__(self):
             pass
-            
+
         async def new_page(self):
             return MockPage()
-            
+
         async def close(self):
             pass
-    
+
     class MockPage:
         def __init__(self):
             self.url = 'https://example.com'
-            
+
         async def goto(self, url, **kwargs):
             self.url = url
-            
+
         async def wait_for_selector(self, selector, **kwargs):
             pass
-            
+
         async def click(self, selector, **kwargs):
             pass
-            
+
         async def fill(self, selector, text, **kwargs):
             pass
-            
+
         async def close(self):
             pass
-            
+
         async def locator(self, selector):
             return MockLocator()
-    
+
     class MockLocator:
         def __init__(self):
             pass
-            
+
         async def count(self):
             return 1
-            
+
         async def nth(self, index):
             return self
-            
+
         async def text_content(self):
             return 'Mock text'
-            
+
         async def get_attribute(self, attr):
             return 'mock-value'
-            
+
         async def fill(self, text):
             pass
-            
+
         async def click(self):
             pass
-    
+
     return MockBrowser()

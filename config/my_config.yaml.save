@@ -1,0 +1,98 @@
+# DEMO CONFIGURATION - Replace with your real credentials
+# Job Application Agent Configuration
+
+# Platform Credentials (REQUIRED - Replace with real values)
+credentials:
+  linkedin:
+    email: "ddanielh5@gmail.com"          # Your LinkedIn login email
+    password: "2513fuhe"              # Your LinkedIn password
+  
+  wellfound:
+    email: "daniel.he@alumni.emory.edu"         # Your Wellfound login email  
+    password: "dVF3(32ct"             # Your Wellfound password
+  
+  # Email account for Greenhouse verification (REQUIRED)
+  verification_email:
+    address: "your.dedicated.job.email@gmail.com"   # Dedicated Gmail for job applications
+    password: "abcd efgh ijkl mnop"                 # Gmail App Password (16 characters)
+    imap_server: "imap.gmail.com"
+    imap_port: 993
+
+# Job Search Configuration (CUSTOMIZE FOR YOUR NEEDS)
+search_settings:
+  default_keywords:
+    - "Software Engineer"           # Replace with your target job titles
+    - "Full Stack Developer"
+    - "Backend Engineer"
+    - "Frontend Developer"
+    - "DevOps Engineer"
+  
+  default_locations:
+    - "Remote"                      # Preferred work locations
+    - "San Francisco"
+    - "New York"
+    - "Seattle"
+    - "Austin"
+  
+  experience_levels:
+    - "Entry level"                 # Adjust based on your experience
+    - "Mid-Senior level"
+    - "Senior level"
+  
+  date_posted: "Past week"          # Past 24 hours, Past week, Past month
+  easy_apply_only: true             # Focus on Easy Apply jobs
+  remote_options: "Remote"          # On-site, Remote, Hybrid
+
+# Application Settings (CUSTOMIZE)
+application:
+  max_applications_per_session: 5   # How many jobs per run
+  max_applications_per_platform: 10 # Daily limit per platform
+  delay_between_applications: 30     # Seconds between applications
+  
+  # Your documents
+  resume_path: "./documents/resume.pdf"              # Path to your resume
+  cover_letter_template: "./documents/cover_letter_template.txt"
+  
+  # Your personal information (REQUIRED)
+  personal_info:
+    first_name: "John"                              # Your first name
+    last_name: "Smith"                              # Your last name
+    phone_number: "555-123-4567"                   # Your phone number
+  
+  # Default application answers
+  default_answers:
+    years_experience: "3-5 years"                   # Adjust to your experience
+    willing_to_relocate: false
+    authorized_to_work: true                        # US work authorization
+    require_sponsorship: false                      # Visa sponsorship needed?
+    salary_expectation: "Competitive"
+    availability: "2 weeks notice"
+
+# Browser Settings (FOR VISUALIZATION)
+browser:
+  headless: false                    # SET TO FALSE TO WATCH THE AUTOMATION
+  user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+  window_size:
+    width: 1920
+    height: 1080
+
+# Logging Configuration (FOR MONITORING)
+logging:
+  level: "INFO"                      # DEBUG for verbose, INFO for normal
+  log_file: "./logs/job_agent.log"
+  max_log_size_mb: 10
+  backup_count: 5
+
+# Platform Enable/Disable
+platforms:
+  linkedin:
+    enabled: true                    # Enable LinkedIn automation
+  wellfound:
+    enabled: true                    # Enable Wellfound automation
+
+# Google Sheets Reporting (OPTIONAL BUT RECOMMENDED)
+google_sheets:
+  enabled: false                     # Set to true after Google setup
+  spreadsheet_id: "your_spreadsheet_id_here"   # From Google Sheets URL
+  sheet_name: "Job Applications"     # Sheet name within spreadsheet
+  credentials_path: "google_credentials.json"  # Google API credentials

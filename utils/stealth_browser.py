@@ -16,25 +16,25 @@ class StealthBrowserManager:
     """
     Manages browser instances with advanced anti-detection features
     """
-    
+
     def __init__(self, config: Dict[str, Any]):
         self.config = config
         self.browser_config = config.get('browser', {})
-        
+
     async def apply_stealth_to_page(self, page: Page) -> None:
         """Apply stealth measures to a page"""
         try:
             # Apply playwright-stealth if available
             if self.browser_config.get('stealth_mode', False) and stealth_async:
                 await stealth_async(page)
-            
+
             # Override navigator.webdriver
             await page.add_init_script("""
                 Object.defineProperty(navigator, 'webdriver', {
                     get: () => undefined,
                 });
             """)
-            
+
             # Spoof device memory
             device_memory = self.browser_config.get('device_memory', 8)
             await page.add_init_script(f"""
@@ -42,7 +42,7 @@ class StealthBrowserManager:
                     get: () => {device_memory},
                 }});
             """)
-            
+
             # Spoof hardware concurrency (CPU cores)
             cpu_cores = self.browser_config.get('cpu_cores', 4)
             await page.add_init_script(f"""
@@ -50,14 +50,14 @@ class StealthBrowserManager:
                     get: () => {cpu_cores},
                 }});
             """)
-            
+
             # Spoof languages
             await page.add_init_script("""
                 Object.defineProperty(navigator, 'languages', {
                     get: () => ['en-US', 'en'],
                 });
             """)
-            
+
             # Spoof permissions
             await page.add_init_script("""
                 const originalQuery = window.navigator.permissions.query;
@@ -67,7 +67,7 @@ class StealthBrowserManager:
                         originalQuery(parameters)
                 );
             """)
-            
+
             # Add realistic screen properties
             await page.add_init_script("""
                 Object.defineProperty(screen, 'availWidth', {
@@ -77,7 +77,7 @@ class StealthBrowserManager:
                     get: () => window.screen.height - 40, // Account for taskbar
                 });
             """)
-            
+
             # Randomize mouse movements
             await page.add_init_script("""
                 // Add subtle mouse movement randomization
@@ -90,21 +90,21 @@ class StealthBrowserManager:
                     };
                 }
             """)
-            
+
         except Exception as e:
             # Don't fail if stealth measures can't be applied
             print(f"Warning: Could not apply some stealth measures: {e}")
-    
+
     def get_browser_launch_options(self) -> Dict[str, Any]:
         """Get browser launch options with anti-detection settings"""
         width = self.browser_config.get('window_size', {}).get('width', 1440)
         height = self.browser_config.get('window_size', {}).get('height', 900)
-        
+
         # Randomize viewport slightly if enabled
         if self.browser_config.get('randomize_viewport', False):
             width += random.randint(-50, 50)
             height += random.randint(-30, 30)
-        
+
         launch_options = {
             'headless': self.browser_config.get('headless', False),
             'args': [
@@ -122,7 +122,7 @@ class StealthBrowserManager:
                 f'--window-size={width},{height}',
             ]
         }
-        
+
         # Add extra args for better stealth
         if not self.browser_config.get('headless', False):
             launch_options['args'].extend([
@@ -133,9 +133,9 @@ class StealthBrowserManager:
                 '--disable-gpu-process-crash-limit',
                 '--disable-gpu-sandbox',
             ])
-        
+
         return launch_options
-    
+
     async def create_human_like_context(self, browser) -> BrowserContext:
         """Create a browser context that mimics human behavior"""
         context_options = {
@@ -147,7 +147,8 @@ class StealthBrowserManager:
             'locale': self.browser_config.get('locale', 'en-US'),
             'timezone_id': self.browser_config.get('timezone', 'America/New_York'),
             'permissions': ['geolocation'],
-            'geolocation': {'latitude': 40.7128, 'longitude': -74.0060},  # NYC coordinates
+            # NYC coordinates
+            'geolocation': {'latitude': 40.7128, 'longitude': -74.0060},
             'extra_http_headers': {
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Accept-Encoding': 'gzip, deflate, br',
@@ -159,13 +160,13 @@ class StealthBrowserManager:
                 'Cache-Control': 'max-age=0',
             }
         }
-        
+
         context = await browser.new_context(**context_options)
         return context
-    
+
     async def add_human_behavior_to_page(self, page: Page) -> None:
         """Add human-like behavior patterns to page interactions"""
-        
+
         # Override click to add human-like delays
         await page.add_init_script("""
             const originalClick = HTMLElement.prototype.click;
@@ -174,32 +175,32 @@ class StealthBrowserManager:
                 setTimeout(() => originalClick.call(this), Math.random() * 100 + 50);
             };
         """)
-        
+
         # Add realistic typing patterns
         page.type = self._create_human_type_function(page.type)
-    
+
     def _create_human_type_function(self, original_type):
         """Create a typing function with human-like patterns"""
         async def human_type(selector, text, **kwargs):
             # Add realistic typing delay
             delay = kwargs.get('delay', random.randint(80, 150))
             kwargs['delay'] = delay
-            
+
             # Occasionally make "typos" and correct them
             if len(text) > 5 and random.random() < 0.1:  # 10% chance of typo
                 typo_pos = random.randint(1, len(text) - 1)
                 typo_char = chr(ord(text[typo_pos]) + random.choice([-1, 1]))
                 typo_text = text[:typo_pos] + typo_char + text[typo_pos+1:]
-                
+
                 # Type with typo
                 await original_type(selector, typo_text, **kwargs)
                 await page.wait_for_timeout(random.randint(500, 1500))
-                
+
                 # Correct the typo
                 await page.keyboard.press('Backspace')
                 await page.wait_for_timeout(random.randint(100, 300))
                 await page.keyboard.type(text[typo_pos])
             else:
                 await original_type(selector, text, **kwargs)
-        
+
         return human_type
