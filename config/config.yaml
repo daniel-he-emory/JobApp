@@ -63,7 +63,7 @@ credentials:
     email: danielhe.danielhe@gmail.com
     password: dVF3(32ct
 gemini:
-  api_key: AIzaSyAmxJXDN8ESHWR3C6cO2vgIqRUL8CpHfaI
+  api_key: ${GOOGLE_API_KEY}  # Set via environment variable
 google_sheets:
   credentials_path: google_credentials.json
   enabled: true

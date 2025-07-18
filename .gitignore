@@ -64,3 +64,10 @@ browsers/
 google_credentials.json
 token.json
 
+# Environment variables and secrets
+.env
+.env.local
+.env.production
+config.yaml.local
+config/config.yaml.local
+
