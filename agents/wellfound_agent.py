@@ -1,6 +1,7 @@
 from typing import List, Optional, Dict, Any
 from urllib.parse import urljoin
 
+from playwright.async_api import Error as PlaywrightError
 from base_agent import JobAgent, JobPosting, SearchCriteria
 from utils.email_verifier import GreenHouseEmailVerifier
 
@@ -11,7 +12,8 @@ class WellfoundAgent(JobAgent):
     Specialized for startup job applications
     """
 
-    def __init__(self, config: Dict[str, Any], proxy_config: Optional[Dict[str, str]] = None):
+    def __init__(self, config: Dict[str, Any],
+                 proxy_config: Optional[Dict[str, str]] = None):
         super().__init__(config, proxy_config)
         self.platform_name = "Wellfound"
 
@@ -19,12 +21,7 @@ class WellfoundAgent(JobAgent):
         email_config = config.get('credentials', {}).get(
             'verification_email', {})
         if email_config.get('address'):
-            self.email_verifier = GreenHouseEmailVerifier(
-                email_address=email_config['address'],
-                email_password=email_config['password'],
-                imap_server=email_config.get('imap_server', 'imap.gmail.com'),
-                imap_port=email_config.get('imap_port', 993)
-            )
+            self.email_verifier = GreenHouseEmailVerifier(email_config)
         else:
             self.email_verifier = None
             self.logger.warning("No email verification configured")
@@ -51,7 +48,8 @@ class WellfoundAgent(JobAgent):
             for url in login_urls:
                 try:
                     await self.page.goto(url, timeout=30000)
-                    await self.page.wait_for_load_state('domcontentloaded', timeout=20000)
+                    await self.page.wait_for_load_state(
+                        'domcontentloaded', timeout=20000)
                     page_loaded = True
                     self.logger.info(f"Successfully loaded login page: {url}")
                     break
@@ -84,7 +82,8 @@ class WellfoundAgent(JobAgent):
                     email_filled = True
                     self.logger.info(f"Filled email with selector: {selector}")
                     break
-                except:
+                except PlaywrightError as e:
+                    self.logger.debug(f"Email selector failed: {e}")
                     continue
 
             if not email_filled:
@@ -110,7 +109,8 @@ class WellfoundAgent(JobAgent):
                     self.logger.info(
                         f"Filled password with selector: {selector}")
                     break
-                except:
+                except PlaywrightError as e:
+                    self.logger.debug(f"Password selector failed: {e}")
                     continue
 
             if not password_filled:
@@ -138,7 +138,8 @@ class WellfoundAgent(JobAgent):
                         self.logger.info(
                             f"Clicked login with selector: {selector}")
                         break
-                except:
+                except PlaywrightError as e:
+                    self.logger.debug(f"Login button selector failed: {e}")
                     continue
 
             if not login_clicked:
@@ -147,15 +148,16 @@ class WellfoundAgent(JobAgent):
                     await self.page.keyboard.press('Enter')
                     login_clicked = True
                     self.logger.info("Submitted login form with Enter key")
-                except:
-                    self.logger.error("Could not submit login form")
+                except PlaywrightError as e:
+                    self.logger.error(f"Could not submit login form: {e}")
                     return False
 
             # Wait for login response
             await self.page.wait_for_timeout(5000)
 
             # Check if login was successful
-            await self.page.wait_for_load_state('domcontentloaded', timeout=15000)
+            await self.page.wait_for_load_state(
+                'domcontentloaded', timeout=15000)
             current_url = self.page.url
 
             # Success indicators
@@ -180,7 +182,8 @@ class WellfoundAgent(JobAgent):
             for pattern in verification_patterns:
                 if pattern in current_url or pattern in page_content:
                     self.logger.warning(
-                        "Wellfound login requires verification - proceeding anyway")
+                        "Wellfound login requires verification - "
+                        "proceeding anyway")
                     return True
 
             # Check if we're still on login page (failed login)
@@ -240,7 +243,8 @@ class WellfoundAgent(JobAgent):
                         await self.page.fill(selector, keywords_str)
                         await self.page.press(selector, 'Enter')
                         break
-                except:
+                except PlaywrightError as e:
+                    self.logger.debug(f"Search field selector failed: {e}")
                     continue
 
             await self.page.wait_for_timeout(2000)
@@ -279,7 +283,8 @@ class WellfoundAgent(JobAgent):
                         await self.page.fill(selector, location_str)
                         await self.page.press(selector, 'Enter')
                         break
-                except:
+                except PlaywrightError as e:
+                    self.logger.debug(f"Location selector failed: {e}")
                     continue
 
         except Exception as e:
@@ -301,7 +306,8 @@ class WellfoundAgent(JobAgent):
                         if await self.page.is_visible(selector):
                             await self.page.click(selector)
                             break
-                    except:
+                    except PlaywrightError as e:
+                        self.logger.debug(f"Remote filter selector failed: {e}")
                         continue
 
         except Exception as e:
@@ -333,7 +339,8 @@ class WellfoundAgent(JobAgent):
                             if await self.page.is_visible(selector):
                                 await self.page.click(selector)
                                 return
-                        except:
+                        except PlaywrightError as e:
+                            self.logger.debug(f"Experience filter selector failed: {e}")
                             continue
                     break
 
@@ -346,7 +353,9 @@ class WellfoundAgent(JobAgent):
 
         try:
             # Wait for job listings to load
-            await self.page.wait_for_selector('.job-card, .startup-job-listing, [data-test*="job"]', timeout=10000)
+            await self.page.wait_for_selector(
+                '.job-card, .startup-job-listing, [data-test*="job"]',
+                timeout=10000)
 
             # Get all job cards
             job_selectors = [
@@ -446,7 +455,7 @@ class WellfoundAgent(JobAgent):
                 platform="Wellfound"
             )
 
-        except Exception as e:
+        except (PlaywrightError, AttributeError, TypeError) as e:
             self.logger.warning(f"Error extracting single job: {str(e)}")
             return None
 
@@ -462,7 +471,8 @@ class WellfoundAgent(JobAgent):
             else:
                 # Fallback: use the entire URL as ID
                 return url.split('/')[-1].split('?')[0]
-        except:
+        except (IndexError, TypeError) as e:
+            self.logger.debug(f"Job ID extraction failed: {e}")
             return url
 
     async def apply_to_job(self, job: JobPosting) -> bool:
@@ -490,7 +500,8 @@ class WellfoundAgent(JobAgent):
                         await self.page.click(selector)
                         clicked = True
                         break
-                except:
+                except PlaywrightError as e:
+                    self.logger.debug(f"Apply button selector failed: {e}")
                     continue
 
             if not clicked:
@@ -529,10 +540,13 @@ class WellfoundAgent(JobAgent):
 
                 # Check for external redirects (like Greenhouse)
                 current_url = self.page.url
-                if 'greenhouse.io' in current_url or 'lever.co' in current_url:
+                if ('greenhouse.io' in current_url or
+                        'lever.co' in current_url):
                     # Handle external application systems
                     if self.email_verifier and 'greenhouse' in current_url:
-                        verification_success = await self.email_verifier.handle_greenhouse_verification(self.page)
+                        verification_success = (
+                            await self.email_verifier
+                            .handle_greenhouse_verification(self.page))
                         if verification_success:
                             await self.page.wait_for_timeout(3000)
                             continue
@@ -575,18 +589,26 @@ class WellfoundAgent(JobAgent):
 
             # Common Wellfound form fields
             form_fields = {
-                'why interested': 'I am excited about this opportunity and believe my skills align well with your needs.',
-                'years experience': app_settings.get('years_experience', '3-5 years'),
-                'salary expectation': app_settings.get('salary_expectation', 'Competitive'),
-                'available start': app_settings.get('availability', '2 weeks notice'),
-                'relocate': 'Yes' if app_settings.get('willing_to_relocate', False) else 'No',
-                'visa sponsorship': 'Yes' if app_settings.get('require_sponsorship', False) else 'No'
+                'why interested': ('I am excited about this opportunity and believe '
+                                   'my skills align well with your needs.'),
+                'years experience': app_settings.get(
+                    'years_experience', '3-5 years'),
+                'salary expectation': app_settings.get(
+                    'salary_expectation', 'Competitive'),
+                'available start': app_settings.get(
+                    'availability', '2 weeks notice'),
+                'relocate': ('Yes' if app_settings.get(
+                    'willing_to_relocate', False) else 'No'),
+                'visa sponsorship': ('Yes' if app_settings.get(
+                    'require_sponsorship', False) else 'No')
             }
 
             # Fill text areas and inputs
-            inputs = await self.page.query_selector_all('input[type="text"], textarea, input:not([type])')
+            inputs = await self.page.query_selector_all(
+                'input[type="text"], textarea, input:not([type])')
             for input_element in inputs:
-                placeholder = await input_element.get_attribute('placeholder') or ''
+                placeholder = (
+                    await input_element.get_attribute('placeholder') or '')
                 name = await input_element.get_attribute('name') or ''
                 label_text = await self._get_input_label(input_element)
 
@@ -598,14 +620,17 @@ class WellfoundAgent(JobAgent):
                         break
 
             # Handle checkboxes
-            checkboxes = await self.page.query_selector_all('input[type="checkbox"]')
+            checkboxes = await self.page.query_selector_all(
+                'input[type="checkbox"]')
             for checkbox in checkboxes:
                 label_text = await self._get_input_label(checkbox)
 
                 # Handle common checkboxes
-                if 'terms' in label_text.lower() or 'agree' in label_text.lower():
+                if ('terms' in label_text.lower() or
+                        'agree' in label_text.lower()):
                     await checkbox.check()
-                elif 'newsletter' in label_text.lower() or 'updates' in label_text.lower():
+                elif ('newsletter' in label_text.lower() or
+                      'updates' in label_text.lower()):
                     # Optional: uncheck newsletter subscriptions
                     pass
 
@@ -615,13 +640,12 @@ class WellfoundAgent(JobAgent):
     async def _fill_external_application_form(self):
         """Fill external application forms (Greenhouse, Lever, etc.)"""
         try:
-            app_settings = self.config.get(
-                'application', {}).get('default_answers', {})
-
             # Basic form filling for external systems
-            inputs = await self.page.query_selector_all('input[type="text"], textarea')
+            inputs = await self.page.query_selector_all(
+                'input[type="text"], textarea')
             for input_element in inputs:
-                placeholder = await input_element.get_attribute('placeholder') or ''
+                placeholder = (
+                    await input_element.get_attribute('placeholder') or '')
                 name = await input_element.get_attribute('name') or ''
 
                 # Try to match common fields
@@ -648,7 +672,9 @@ class WellfoundAgent(JobAgent):
                     if phone_number:
                         await input_element.fill(phone_number)
                 elif 'cover letter' in field_context or 'why' in field_context:
-                    await input_element.fill("I am excited about this opportunity and would love to contribute to your team.")
+                    await input_element.fill(
+                        "I am excited about this opportunity and would love "
+                        "to contribute to your team.")
 
         except Exception as e:
             self.logger.warning(f"Error filling external form: {str(e)}")
@@ -659,12 +685,14 @@ class WellfoundAgent(JobAgent):
             # Try to find associated label
             element_id = await element.get_attribute('id')
             if element_id:
-                label = await self.page.query_selector(f'label[for="{element_id}"]')
+                label = await self.page.query_selector(
+                    f'label[for="{element_id}"]')
                 if label:
                     return await label.inner_text()
 
             # Try to find parent label
-            parent_label = await element.query_selector('xpath=ancestor::label[1]')
+            parent_label = await element.query_selector(
+                'xpath=ancestor::label[1]')
             if parent_label:
                 return await parent_label.inner_text()
 
@@ -674,7 +702,8 @@ class WellfoundAgent(JobAgent):
                 return aria_label
 
             return ""
-        except:
+        except (PlaywrightError, AttributeError, TypeError) as e:
+            self.logger.debug(f"Label extraction failed: {e}")
             return ""
 
     async def _click_next_or_submit_button(self) -> bool:
@@ -694,7 +723,8 @@ class WellfoundAgent(JobAgent):
                 if await self.page.is_visible(selector):
                     await self.page.click(selector)
                     return True
-            except:
+            except PlaywrightError as e:
+                self.logger.debug(f"Button click selector failed: {e}")
                 continue
 
         return False
@@ -714,7 +744,8 @@ class WellfoundAgent(JobAgent):
         content = await self.page.content()
         content_lower = content.lower()
 
-        return any(indicator in content_lower for indicator in success_indicators)
+        return any(indicator in content_lower
+                   for indicator in success_indicators)
 
     async def get_job_details(self, job_url: str) -> Optional[JobPosting]:
         """Get detailed job information from job page"""
@@ -724,21 +755,30 @@ class WellfoundAgent(JobAgent):
 
             # Extract detailed information
             title_element = await self.page.query_selector('h1, .job-title')
-            title = await title_element.inner_text() if title_element else "Unknown"
+            title = (await title_element.inner_text()
+                     if title_element else "Unknown")
 
-            company_element = await self.page.query_selector('.startup-name, .company-name')
-            company = await company_element.inner_text() if company_element else "Unknown"
+            company_element = await self.page.query_selector(
+                '.startup-name, .company-name')
+            company = (await company_element.inner_text()
+                       if company_element else "Unknown")
 
-            location_element = await self.page.query_selector('.location, .job-location')
-            location = await location_element.inner_text() if location_element else "Unknown"
+            location_element = await self.page.query_selector(
+                '.location, .job-location')
+            location = (await location_element.inner_text()
+                        if location_element else "Unknown")
 
             # Extract job description
-            description_element = await self.page.query_selector('.job-description, .description')
-            description = await description_element.inner_text() if description_element else None
+            description_element = await self.page.query_selector(
+                '.job-description, .description')
+            description = (await description_element.inner_text()
+                           if description_element else None)
 
             # Extract salary if available
-            salary_element = await self.page.query_selector('.salary, .compensation')
-            salary = await salary_element.inner_text() if salary_element else None
+            salary_element = await self.page.query_selector(
+                '.salary, .compensation')
+            salary = (await salary_element.inner_text()
+                      if salary_element else None)
 
             job_id = self._extract_job_id_from_url(job_url)
 

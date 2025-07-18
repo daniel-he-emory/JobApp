@@ -152,7 +152,7 @@ class JobAgent(ABC):
                     'iframe[src*="recaptcha"], iframe[src*="google.com/recaptcha"]',
                     timeout=2000
                 )
-            except:
+            except Exception:
                 pass
 
             if recaptcha_iframe:
@@ -167,7 +167,7 @@ class JobAgent(ABC):
                     '[data-sitekey], .g-recaptcha[data-sitekey]',
                     timeout=2000
                 )
-            except:
+            except Exception:
                 pass
 
             if recaptcha_v3:
@@ -182,7 +182,7 @@ class JobAgent(ABC):
                     'iframe[src*="hcaptcha"], .h-captcha',
                     timeout=2000
                 )
-            except:
+            except Exception:
                 pass
 
             if hcaptcha:
@@ -298,11 +298,11 @@ class JobAgent(ABC):
                     if (textarea) {{
                         textarea.value = '{token}';
                         textarea.innerHTML = '{token}';
-                        
+
                         // Trigger change event
                         const event = new Event('change', {{ bubbles: true }});
                         textarea.dispatchEvent(event);
-                        
+
                         return true;
                     }}
                     return false;
@@ -320,7 +320,7 @@ class JobAgent(ABC):
                             if (window.grecaptcha.reset) {{
                                 window.grecaptcha.reset(widgetId);
                             }}
-                            
+
                             // Set response directly
                             if (window.grecaptcha.enterprise) {{
                                 window.grecaptcha.enterprise.execute();
@@ -329,7 +329,7 @@ class JobAgent(ABC):
                             console.log('reCAPTCHA callback execution failed:', e);
                         }}
                     }}
-                    
+
                     // Look for custom callback functions
                     const forms = document.querySelectorAll('form');
                     forms.forEach(form => {{

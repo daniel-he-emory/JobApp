@@ -337,7 +337,7 @@ class AIEnhancer:
                         exp_text += f"\n  Responsibilities: {responsibilities}"
                     exp_parts.append(exp_text)
                 profile_parts.append(
-                    f"Work Experience:\n" + "\n".join(exp_parts))
+                    "Work Experience:\n" + "\n".join(exp_parts))
 
             # Add education
             education = self.structured_resume.get('education', [])
@@ -352,7 +352,7 @@ class AIEnhancer:
                     if edu.get('gpa'):
                         edu_text += f" - GPA: {edu['gpa']}"
                     edu_parts.append(edu_text)
-                profile_parts.append(f"Education:\n" + "\n".join(edu_parts))
+                profile_parts.append("Education:\n" + "\n".join(edu_parts))
 
             return "\n\n".join(profile_parts)
 

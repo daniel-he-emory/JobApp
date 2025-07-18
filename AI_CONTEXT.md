@@ -27,6 +27,10 @@ This project utilizes a multi-agent development model to ensure efficiency and a
 *   **Context Management:**
     *   When updating this `AI_CONTEXT.md` file, the Architect (Gemini) must **append or update** relevant sections rather than overwriting the entire file, preserving the history and structure.
 
+*   **Parallelization Strategy:**
+    *   The Architect (Gemini) will actively identify opportunities to break down large tasks into smaller, independent components.
+    *   When parallel work is possible, the Architect will provide multiple, clearly labeled prompts (e.g., "Prompt for Claude A," "Prompt for Claude B") for the user to distribute to separate builder instances. This approach is designed to significantly accelerate development velocity.
+
 ## Current Project State
 The autonomous job application agent is **COMPLETE** and production-ready with all critical architectural issues resolved.
 
@@ -251,3 +255,109 @@ python main.py --platforms linkedin,wellfound --max-apps 20
 ```
 
 The job application system has evolved from basic automation to an enterprise-grade AI-powered platform capable of intelligent job selection, personalized content generation, and undetectable automation at scale.
+
+## ✅ Error Handling Refactoring Complete (v1.6)
+**IMPLEMENTATION COMPLETE**: LinkedIn Agent error handling significantly improved with specific exception types.
+
+### ✅ Code Quality Enhancement - LinkedIn Agent:
+**File Refactored**: `/home/daniel/JobApp/agents/linkedin_agent.py`
+- **Playwright Error Import**: Added `from playwright.async_api import Error as PlaywrightError`
+- **17 Bare Exception Handlers Replaced**: All `except:` and generic `except Exception:` clauses in inner blocks now use specific exception types
+- **Improved Error Specificity**: 
+  - Browser operations now catch `PlaywrightError`
+  - Data extraction catches `(PlaywrightError, AttributeError, TypeError)`
+  - String processing catches `(AttributeError, TypeError, ValueError)`
+- **Enhanced Debugging**: All exception handlers now include the exception variable in log messages
+- **Maintained Logging**: All existing logger calls preserved with improved exception details
+
+### ✅ Specific Improvements Applied:
+1. **Search Field Operations**: `PlaywrightError` handling for form field interactions
+2. **Job Data Extraction**: Multi-exception handling for robust DOM parsing
+3. **Button Click Operations**: Specific `PlaywrightError` catching for UI interactions  
+4. **Form Field Processing**: Comprehensive exception handling for application forms
+5. **URL/ID Processing**: Proper exception types for string manipulation operations
+6. **Element Detection**: Enhanced exception handling for DOM traversal and element queries
+
+### ✅ Code Quality Validation:
+- **Syntax Check**: ✅ File compiles successfully
+- **Import Validation**: ✅ PlaywrightError properly imported
+- **Agent Instantiation**: ✅ LinkedInAgent creates successfully
+- **Exception Coverage**: ✅ All 17 bare except clauses eliminated
+- **Logging Preserved**: ✅ All debug/warning messages maintained with exception details
+
+### 🎯 Production Impact:
+**Enhanced Error Handling Benefits**:
+- **Better Debugging**: Specific exception types provide clearer error identification
+- **Improved Robustness**: Targeted exception handling prevents unexpected crashes
+- **Maintenance Efficiency**: Developers can quickly identify and fix specific failure points
+- **Code Standards**: Follows Python PEP8 best practices for exception handling
+- **Operational Stability**: More predictable behavior during automation failures
+
+### 📊 Technical Debt Reduction:
+- **Eliminated**: 17 bare except clauses (E722 flake8 violations)
+- **Improved**: Error diagnosis and debugging capabilities
+- **Enhanced**: Code maintainability and readability
+- **Standardized**: Exception handling patterns across the LinkedIn agent
+
+The LinkedIn agent now follows enterprise-grade Python exception handling standards while maintaining all existing functionality and improving operational reliability.
+
+### ✅ Wellfound Agent Error Handling Enhancement:
+**File Refactored**: `/home/daniel/JobApp/agents/wellfound_agent.py`
+- **Playwright Error Import**: Added `from playwright.async_api import Error as PlaywrightError`
+- **10 Bare Exception Handlers Replaced**: All `except:` clauses in inner blocks now use specific exception types
+- **Improved Error Specificity**:
+  - Login form operations catch `PlaywrightError`
+  - Job search interactions catch `PlaywrightError`
+  - Job data extraction catches `(PlaywrightError, AttributeError, TypeError)`
+  - URL/ID processing catches `(IndexError, TypeError)`
+  - Label extraction catches `(PlaywrightError, AttributeError, TypeError)`
+- **Enhanced Debugging**: All exception handlers include the exception variable in log messages
+- **Maintained Functionality**: All existing workflows preserved with improved error handling
+
+Both LinkedIn and Wellfound agents now follow consistent, enterprise-grade exception handling standards with specific error types for enhanced debugging and operational stability.
+
+## ⚠️ LinkedIn Selector Issue Identified (v1.7)
+**CRITICAL ISSUE DISCOVERED**: LinkedIn website structure changes have broken job search functionality.
+
+### 🔍 Issue Analysis:
+**Live Testing Results** (Latest Run):
+- ✅ **AI Services & Login**: All AI services initialized correctly, LinkedIn login successful
+- ❌ **Job Search Failure**: Agent navigated to jobs page but failed to find search input fields or job card elements
+- 📋 **Error Sequence**: 
+  1. "Initial navigation slow" - Page loading issues
+  2. "Could not find standard results container" - Results container selectors invalid
+  3. "No job cards found" - Job card selectors no longer match LinkedIn's HTML
+
+### 🎯 Root Cause:
+**Classic Web Scraping Challenge**: LinkedIn has updated their website's HTML structure, rendering our CSS selectors obsolete. This is a common issue in web automation that requires selector maintenance.
+
+### 📍 Affected Components:
+**File**: `/home/daniel/JobApp/agents/linkedin_agent.py`
+- **Search Field Selectors** (Lines ~124-131): Input field selectors for job search
+- **Results Container Selectors** (Lines ~334-344): Job listings container detection  
+- **Job Card Selectors** (Lines ~365-380): Individual job card element detection
+- **Apply Button Selectors** (Lines ~575-580): Easy Apply button detection
+
+### 🔧 Required Maintenance:
+**Selector Update Needed**: All LinkedIn-specific CSS selectors require inspection and updating to match current website structure:
+1. **Job Search Input Fields**: Update search and location field selectors
+2. **Job Listings Container**: Update results container detection patterns
+3. **Individual Job Cards**: Update job card element selectors
+4. **Apply Buttons**: Update Easy Apply button detection
+5. **Navigation Elements**: Verify page navigation selectors
+
+### 📊 System Status:
+- ✅ **Core Infrastructure**: Fully operational (AI, config, browser automation)
+- ✅ **Authentication**: LinkedIn login working perfectly
+- ⚠️ **Job Discovery**: Broken due to selector changes
+- ⚠️ **Job Applications**: Cannot proceed without job discovery
+- ✅ **Other Platforms**: Wellfound functionality likely unaffected
+
+### 🎯 Next Steps:
+**Immediate Action Required**: LinkedIn selector modernization to restore functionality
+1. Inspect current LinkedIn jobs page HTML structure
+2. Update all job search and listing selectors
+3. Test and validate updated selectors
+4. Implement fallback selector patterns for resilience
+
+**Note**: This is standard maintenance for web automation systems - selector updates are routine when target websites change their structure.

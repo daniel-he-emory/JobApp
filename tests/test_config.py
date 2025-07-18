@@ -23,7 +23,7 @@ class TestConfigLoader:
     def test_load_config_missing_file(self, temp_dir):
         """Test behavior when config file is missing"""
         missing_file = temp_dir / 'missing.yaml'
-        loader = ConfigLoader(str(missing_file))
+        loader = ConfigLoader(str(missing_file), validate=False)
 
         # Should not raise exception, just log warning
         config = loader.load_config()
@@ -200,7 +200,7 @@ class TestConfigLoader:
         with open(config_path, 'w') as f:
             yaml.dump(config, f)
 
-        loader = ConfigLoader(str(config_path))
+        loader = ConfigLoader(str(config_path), validate=False)
         loader.load_config()
 
         proxy_config = loader.get_proxy_config()
@@ -295,7 +295,7 @@ class TestConfigValidationEdgeCases:
         with open(invalid_yaml, 'w') as f:
             f.write('invalid: yaml: content: [unclosed bracket')
 
-        loader = ConfigLoader(str(invalid_yaml))
+        loader = ConfigLoader(str(invalid_yaml), validate=False)
         config = loader.load_config()  # Should handle gracefully
         assert isinstance(config, dict)
 

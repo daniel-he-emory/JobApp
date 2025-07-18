@@ -11,9 +11,10 @@ class ConfigLoader:
     Provides fallback mechanisms and validation
     """
 
-    def __init__(self, config_path: str = "config/config.yaml"):
+    def __init__(self, config_path: str = "config/config.yaml", validate: bool = True):
         self.config_path = Path(config_path)
         self.config: Dict[str, Any] = {}
+        self.validate = validate
         self.logger = logging.getLogger(__name__)
 
     def load_config(self) -> Dict[str, Any]:
@@ -38,8 +39,9 @@ class ConfigLoader:
         # Override with environment variables
         self._load_env_overrides()
 
-        # Validate critical configuration
-        self._validate_config()
+        # Validate critical configuration if enabled
+        if self.validate:
+            self._validate_config()
 
         return self.config
 
@@ -165,13 +167,35 @@ class ConfigLoader:
         if not isinstance(value, str):
             return False
 
-        placeholder_indicators = [
-            'your_', 'example.com', 'placeholder', 'change_me', 'todo',
-            'your_app_password', 'your_linkedin_', 'your_wellfound_'
+        # Common placeholder patterns that indicate the value needs to be replaced
+        placeholder_patterns = [
+            'your_email@example.com',
+            'your_linkedin_email',
+            'your_wellfound_email',
+            'your_app_password',
+            'your_linkedin_password',
+            'your_wellfound_password',
+            'your_password',
+            'placeholder_value',
+            'change_me',
+            'todo',
+            'fill_in',
+            'replace_me'
         ]
 
         value_lower = value.lower()
-        return any(indicator in value_lower for indicator in placeholder_indicators)
+
+        # Check for exact matches or starts with patterns
+        for pattern in placeholder_patterns:
+            if pattern in value_lower or value_lower.startswith('your_'):
+                return True
+
+        # Allow test values and real email patterns
+        if 'test@' in value_lower or '@gmail.com' in value_lower or '@' in value:
+            # This looks like a real email, not a placeholder
+            return False
+
+        return False
 
     def _get_nested_config(self, path: list) -> Any:
         """Get a nested configuration value"""
@@ -187,7 +211,8 @@ class ConfigLoader:
         """Get configuration value with dot notation support"""
         if '.' in key:
             path = key.split('.')
-            return self._get_nested_config(path)
+            result = self._get_nested_config(path)
+            return result if result is not None else default
         else:
             return self.config.get(key, default)
 

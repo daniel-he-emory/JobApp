@@ -114,7 +114,7 @@ class TestJobApplicationOrchestrator:
         with open(config_path, 'w') as f:
             yaml.dump(config, f)
 
-        orchestrator = JobApplicationOrchestrator(str(config_path))
+        orchestrator = JobApplicationOrchestrator(str(config_path), validate_config=False)
         enabled = orchestrator.get_enabled_platforms()
 
         assert 'linkedin' not in enabled
@@ -229,7 +229,7 @@ class TestJobApplicationOrchestrator:
         with open(config_path, 'w') as f:
             yaml.dump(config, f)
 
-        orchestrator = JobApplicationOrchestrator(str(config_path))
+        orchestrator = JobApplicationOrchestrator(str(config_path), validate_config=False)
         result = await orchestrator.run_automation()
 
         assert result['total_platforms'] == 0

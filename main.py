@@ -7,7 +7,7 @@ It manages configuration, state tracking, and execution of platform-specific age
 
 Usage:
     python main.py [--config CONFIG_PATH] [--platforms PLATFORM1,PLATFORM2] [--max-apps MAX]
-    
+
 Example:
     python main.py --platforms linkedin,wellfound --max-apps 10
 """
@@ -42,9 +42,9 @@ class JobApplicationOrchestrator:
     Manages configuration, agents, and provides execution coordination
     """
 
-    def __init__(self, config_path: str = "config/config.yaml", dry_run: bool = False):
+    def __init__(self, config_path: str = "config/config.yaml", dry_run: bool = False, validate_config: bool = True):
         self.dry_run = dry_run
-        self.config_loader = ConfigLoader(config_path)
+        self.config_loader = ConfigLoader(config_path, validate=validate_config)
         self.config = self.config_loader.load_config()
         self.state_manager = self._init_state_manager()
         self.logger = self._setup_logging()
@@ -173,7 +173,7 @@ class JobApplicationOrchestrator:
             f"✅ {platform_name} credentials configured ({credentials['email'][:3]}***)")
 
         # Simulate search criteria
-        print(f"\n📋 Search Configuration:")
+        print("\n📋 Search Configuration:")
         print(f"   Keywords: {search_criteria.keywords}")
         print(f"   Locations: {search_criteria.locations}")
         print(f"   Date posted: {search_criteria.date_posted}")

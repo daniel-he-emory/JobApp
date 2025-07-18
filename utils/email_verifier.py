@@ -13,12 +13,11 @@ class GreenHouseEmailVerifier:
     Connects to Gmail to find verification emails and extract links
     """
 
-    def __init__(self, email_address: str, email_password: str,
-                 imap_server: str = "imap.gmail.com", imap_port: int = 993):
-        self.email_address = email_address
-        self.email_password = email_password
-        self.imap_server = imap_server
-        self.imap_port = imap_port
+    def __init__(self, config: Dict[str, Any]):
+        self.email_address = config.get('address')
+        self.email_password = config.get('password')
+        self.imap_server = config.get('imap_server', 'imap.gmail.com')
+        self.imap_port = config.get('imap_port', 993)
         self.logger = logging.getLogger(__name__)
 
     def connect_to_email(self) -> Optional[imaplib.IMAP4_SSL]:
